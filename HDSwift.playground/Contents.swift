@@ -5,7 +5,7 @@ import CreateMLComponents
 class HDModel {
     var trainData: [[Double]]
     var trainLabels: [Int]
-    var testData: MLMultiArray
+    var testData: [[Double]]
     var testLabels: [Int]
     var D: Int
     var totalLevel: Int
