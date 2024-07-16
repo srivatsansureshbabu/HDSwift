@@ -63,31 +63,47 @@ class HDModel {
        return levelList
     }
     
-    func genLevelHVs(totalLevel: Int, D: Int) -> [String: Int]{
+    func genLevelHVs(totalLevel: Int, D: Int) -> [Int: [Int]]{
         
         print("generating level HVs")
-        var levelHVs: [String: Int] = [:]
-        var indexVector = D
+        var levelHVs: [Int: [Int]] = [:]
+        var indexVector = 1...D
         var nextLevel = Int(D/2/totalLevel)
         var change = Int(D / 2)
         var toOne: [Int] = []
         for level in stride(from:0, to: totalLevel, by: 1){
             var name = level
             
+            var base = Array(repeating: -1, count: D)
+
             if level == 0{
-                let base = createMLMultiArray(dimension: D, baseVal: -1)
-                let toOne = MLShuffleArray(base!);
-//                 toOne = toOne(indexVector)[:change]
+                
+                for _ in 1..<D {
+                    let randomNumber = Int.random(in: 1...D)
+                    toOne.append(randomNumber)
+                }
+                
+                toOne.shuffle()
+                toOne = Array(toOne[..<change])
             }
             else{
-                let toOne = createMLMultiArray(dimension: D, baseVal: -1)
-//                toOne = toOne(indexVector)[:nextLevel]
+                for _ in 1..<D {
+                    let randomNumber = Int.random(in: 1...D)
+                    toOne.append(randomNumber)
+                }
+                
+                toOne.shuffle()
+                toOne = Array(toOne[..<nextLevel])
+                
+                
             }
+           
             for index in toOne{
-                // base[index] = base[index] * -1
-                // levelHVs[name] = copy.deepcopy(base)
+                base[index] = base[index] * -1
             }
+            levelHVs[name] = base
         }
+        
         
         return levelHVs
     }
