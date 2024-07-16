@@ -108,14 +108,32 @@ class HDModel {
         return levelHVs
     }
     
-//    func genIDHVs(totalPos: NSNumber, D: Int) -> [String: Int]{
-//        print("generating ID HVs")
-//        let IDHVs: [String: Int] = [:]
-//        let indexVector = D
-//        let change = Int(D / 2)
-//        let toOne: [Int] = []
-//        
-//        return ["Hello": 10]
-//    }
+    func genIDHVs(totalPos: NSNumber, D: Int) -> [Int: [Int]]{
+        print("generating ID HVs")
+        var IDHVs: [Int: [Int]] = [:]
+        var indexVector = D
+        var change = Int(D / 2)
+        var toOne: [Int] = []
+        
+        for level in stride(from:0, to: totalLevel, by: 1){
+        var name = level
+        var base = Array(repeating: -1, count: D)
+        
+            for _ in 1..<D {
+                let randomNumber = Int.random(in: 1...D)
+                toOne.append(randomNumber)
+            }
+            
+            toOne.shuffle()
+            toOne = Array(toOne[..<change])
+            
+            for index in toOne{
+                base[index] = 1
+            }
+            IDHVs[name] = base
+            
+        }
+        return IDHVs
+    }
     
     }
