@@ -10,7 +10,7 @@ class HDModel {
     var testLabels: [Int]
     var D: Int
     var totalLevel: Int
-    var posIdNum: Double
+    var posIdNum: Int
     var levelList: [Double]
     var levelHVs: [Int: [Int]]
     var IDHVs: [Int: [Int]]
@@ -25,7 +25,7 @@ class HDModel {
         self.testLabels = testLabels
         self.D = D
         self.totalLevel = totalLevel
-        self.posIdNum = Double(trainData.count)
+        self.posIdNum = (trainData.count)
         self.trainHVs = []
         self.testHVs = []
         self.classHVs = []
@@ -34,7 +34,7 @@ class HDModel {
         self.IDHVs = [:]
         self.levelList = getLevelList(trainData: trainData, totalLevel: totalLevel)
         self.levelHVs = genLevelHVs(totalLevel: totalLevel, D: D)
-        self.IDHVs = genIDHVs(totalLevel: Int(posIdNum), D: D)
+        self.IDHVs = genIDHVs(totalPos: posIdNum, D: D)
     }
     
     public func getLevelList(trainData: [[Double]], totalLevel: Int) -> [Double] { // shud be double
@@ -55,10 +55,10 @@ class HDModel {
         }
         
         let length = maximum - minimum
-        let gap = Int(length) / totalLevel
+        let gap = length / Double(totalLevel)
         
         for lv in 0..<totalLevel {
-            let value = Double(minimum) + Double(lv * gap)
+            let value = Double(minimum) + Double(lv) * Double(gap)
             levelList.append(value)
         }
         levelList.append(Double(maximum))
@@ -99,7 +99,7 @@ class HDModel {
         return levelHVs
     }
     
-    func genIDHVs(totalLevel: Int, D: Int) -> [Int: [Int]] {
+    func genIDHVs(totalPos: Int, D: Int) -> [Int: [Int]] {
         print("Generating ID HVs")
         var IDHVs: [Int: [Int]] = [:]
         let change = D / 2
@@ -109,7 +109,7 @@ class HDModel {
             fatalError("The value of `D` should be at least twice the value of `change`.")
         }
         
-        for level in 0..<totalLevel {
+        for level in 0..<totalPos {
             var base = Array(repeating: -1, count: D)
             var toOne: [Int] = []
             
@@ -134,31 +134,40 @@ class HDModel {
         
         return IDHVs
     }
-
-//    func genIDHVs(totalPos: Double, D: Int) -> [Int: [Int]] {
-//        print("generating ID HVs")
-//        var IDHVs: [Int: [Int]] = [:]
-//        let change = D / 2
+    
+//    func buildBufferHVs(mode: String, D: Int, dataset: String){
 //        
-//        for level in 0..<totalLevel {
-//            var base = Array(repeating: -1, count: D)
-//            var toOne: [Int] = []
-//            
-//            for _ in 1..<D {
-//                let randomNumber = Int.random(in: 0..<D)
-//                toOne.append(randomNumber)
-//            }
-//            
-//            
-//            
-//            toOne.shuffle()
-//            toOne = Array(toOne.prefix(change))
-//            
-//            for index in toOne {
-//                base[index] = 1
-//            }
-//            IDHVs[level] = base
+//        if mode == "train"{
+//            self.trainHVs = binarize(
 //        }
-//        return IDHVs
+//        else{
+//            
+//        }
 //    }
+        
+
+    func binarize<T: Comparable & Numeric>(_ hypervector: Any, threshold: T) -> Any {
+
+        func binarizeLevel(_ array: [Any], threshold: T) -> [Any] {
+            return array.map { element in
+                if let subArray = element as? [Any] {
+                    return binarizeLevel(subArray, threshold: threshold)
+                } else if let value = element as? T {
+                    return value > threshold ? 1 : -1
+                } else {
+                    return element
+                }
+            }
+        }
+        
+        if let hypervector = hypervector as? [Any] {
+            return binarizeLevel(hypervector, threshold: threshold)
+        } else {
+            print("not an array")
+            return hypervector
+        }
+    }
+    
+//    func oneHVPerClass(inputLabels: [Int], inputHVs: )
+    
 }
