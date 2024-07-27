@@ -2,6 +2,7 @@ import UIKit
 import CoreML
 import CreateMLComponents
 import Foundation
+//import CreateML
 
 class HDModel {
     var trainData: [[Double]]
@@ -25,7 +26,7 @@ class HDModel {
         self.testLabels = testLabels
         self.D = D
         self.totalLevel = totalLevel
-        self.posIdNum = (trainData.count)
+        self.posIdNum = (trainData[0].count)
         self.trainHVs = []
         self.testHVs = []
         self.classHVs = []
@@ -104,7 +105,6 @@ class HDModel {
         var IDHVs: [Int: [Int]] = [:]
         let change = D / 2
         
-        // Ensure `change` is less than `D`
         guard change <= D else {
             fatalError("The value of `D` should be at least twice the value of `change`.")
         }
@@ -113,22 +113,18 @@ class HDModel {
             var base = Array(repeating: -1, count: D)
             var toOne: [Int] = []
             
-            // Populate `toOne` with random indices
             for _ in 1..<D {
                 let randomNumber = Int.random(in: 0..<D)
                 toOne.append(randomNumber)
             }
             
-            // Shuffle and take the first `change` indices
             toOne.shuffle()
             toOne = Array(toOne.prefix(change))
             
-            // Set the positions in `base` to 1
             for index in toOne {
                 base[index] = 1
             }
             
-            // Store the result in `IDHVs`
             IDHVs[level] = base
         }
         
@@ -168,6 +164,33 @@ class HDModel {
         }
     }
     
-//    func oneHVPerClass(inputLabels: [Int], inputHVs: )
+    
+    func oneHVPerClass(inputLabels: [Int], inputHVs: [[Double]], D: Int) -> MLMultiArray? {
+        let numClasses = (inputLabels.max() ?? 0) + 1
+        
+        // creates 2D multiarray [numClasses, D]
+        guard let classHVs = try? MLMultiArray(shape: [NSNumber(value: numClasses), NSNumber(value: D)], dataType: .double) else {
+            print("boy wut da hael boy")
+            return nil
+        }
+        
+
+        for i in 0..<numClasses {
+            for j in 0..<D {
+                classHVs[[i, j] as [NSNumber]] = NSNumber(value: 0.0)
+            }
+        }
+        
+        
+        for (index, label) in inputLabels.enumerated() {
+            let hv = inputHVs[index]
+            for j in 0..<D {
+                let currentValue = classHVs[[label, j] as [NSNumber]].doubleValue
+                classHVs[[label, j] as [NSNumber]] = NSNumber(value: currentValue + hv[j]) // coreml operation
+            }
+        }
+        
+        return classHVs
+    }
     
 }
