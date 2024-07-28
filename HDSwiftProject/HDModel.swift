@@ -106,7 +106,7 @@ class HDModel {
         let change = D / 2
         
         guard change <= D else {
-            fatalError("The value of `D` should be at least twice the value of `change`.")
+            fatalError("Are you seriooousss right neow bro")
         }
         
         for level in 0..<totalPos {
@@ -192,5 +192,73 @@ class HDModel {
         
         return classHVs
     }
+    
+
+    
+    
+    func IDMultHV(inputBuffer: [[Double]], D: Int, inputHVs: [Int: [Int]], levelList: [Double], IDHVs: [Int:[Int]]) -> MLMultiArray?{
+        
+        
+        var totalLevel = levelList.count - 1
+        var totalPos = IDHVs.keys.count
+        var sumHV = zeros(size: D)
+        
+        
+        for keyVal in 0...inputBuffer.count{
+            var IDHV = IDHVs[keyVal]
+//            var key = numToKey(inputBuffer[keyVal], levelList)
+//            var levelHV = levelHVs[key]
+//            sumHV = sumHV + (IDHV * levelHV) // may be a coreml operation
+        }
+        
+        return sumHV
+    }
+    
+    //
+    func numToKey(value: Double, levelList: [Double]) -> Int{
+        let levelListValue = levelList.last
+        
+        if value == levelListValue {
+            return levelList.count - 2
+        }
+        var upperIndex = levelList.count - 1
+        var lowerIndex = 0
+        var keyIndex = 0
+        
+        while upperIndex > lowerIndex{
+            var keyIndex = Int((upperIndex+lowerIndex)/2)
+            
+            if levelList[keyIndex] <= value && levelList[keyIndex+1] > value{
+                return keyIndex
+            }
+            if levelList[keyIndex] > value{
+                upperIndex = keyIndex
+                keyIndex = Int((upperIndex + lowerIndex)/2)
+            }
+            else{
+               lowerIndex = keyIndex
+                keyIndex = Int((upperIndex+lowerIndex)/2)
+            }
+        }
+        return keyIndex
+    }
+    
+    func zeros(size: Int) -> MLMultiArray? {
+        do {
+            let multiArray = try MLMultiArray(shape: [NSNumber(value: size)], dataType: .float32)
+            
+            // fill with zeros
+            for index in 0..<multiArray.count {
+                multiArray[index] = 0
+            }
+            
+            return multiArray
+        } catch {
+            print("Error creating MLMultiArray: \(error)")
+            return nil
+        }
+    }
+    
+    
     
 }
