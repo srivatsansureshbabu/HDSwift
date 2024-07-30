@@ -137,10 +137,13 @@ class HDModel {
 //            self.trainHVs = binarize(self.trainHVs, threshold: 2)
 //            // convert trainHVs into array of doubles
 //            self.trainHVs = convertToArrayOfArrayOfDoubles(from: trainHVs)
-//            self.classHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: self.D)
+//            let IntIntclassHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs as! [[Double]], D: self.D)
+//            self.classHVs = convertToArrayOfIntArrays(from: IntIntclassHVs!)!
+//            
+//            
 //        }
 //        else{
-//            
+//            let IntIntTestHVs = binarize(self.testHVs, threshold: 2)
 //        }
 //    }
     
@@ -252,46 +255,26 @@ class HDModel {
 
     
     
-    func IDMultHV(inputBuffer: [Double], D: Int, inputHVs: [Int: [Double]], levelList: [Double], IDHVs: [Int:[Double]]) -> MLMultiArray?{
+    func IDMultHV(inputBuffer: [Double], D: Int, levelHVs: [Int: [Double]], levelList: [Double], IDHVs: [Int:[Double]]) -> [Double]?{
         
         
         var totalLevel = levelList.count - 1
         var totalPos = IDHVs.keys.count
-        var sumHV = zeros(size: D)
-        
-        
-        
-        
+        var sumHV = zeros(size: D)!
         
         for keyVal in 0..<inputBuffer.count{
-            let IDHV = IDHVs[keyVal]
-            let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
-            let levelHV = levelHVs[key]
+            var IDHV = IDHVs[keyVal]
+            var key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
+            var levelHV = levelHVs[key]
             
-            let dimensionIDHV = [NSNumber(value: IDHV!.count)]  // Shape should match the array size
-            let dimensionlevelHV = [NSNumber(value: levelHV!.count)]
-            if let IDHV = convertToMLMultiArrayDouble(doubleArray: IDHV!, dimension: dimensionIDHV), let levelHV = convertToMLMultiArray(intArray: levelHV!, dimension: dimensionlevelHV) {
-                
-                
-//              sumHV = sumHV + (IDHV * levelHV)
-                
-                for i in 0..<IDHV.count {
-                    let IDHV_val = IDHV[i].floatValue
-                    let levelHV_val = levelHV[i].floatValue
-                    sumHV![i] = IDHV_val * levelHV_val as NSNumber
-                }
-                
-                
-            } else {
-                print("IDHV not converted")
+            for i in 0..<IDHV!.count {
+                sumHV[i] += IDHV![i] * levelHV![i]
             }
-            
         }
         
         return sumHV
     }
     
-    //
     func numToKey(value: Double, levelList: [Double]) -> Int{
         let levelListValue = levelList.last
         
@@ -320,21 +303,19 @@ class HDModel {
         return keyIndex
     }
     
-    func zeros(size: Int) -> MLMultiArray? {
-        do {
-            let multiArray = try MLMultiArray(shape: [NSNumber(value: size)], dataType: .float32)
-            
-            // fill with zeros
-            for index in 0..<multiArray.count {
-                multiArray[index] = 0
-            }
-            
-            return multiArray
-        } catch {
-            print("couldn't create ml array: \(error)")
+    func zeros(size: Int) -> [Double]? {
+        // Check if size is non-negative
+        guard size >= 0 else {
+            print("Size must be non-negative.")
             return nil
         }
+        
+        // Create an array of doubles filled with zeros
+        let zeroArray = [Double](repeating: 0.0, count: size)
+        
+        return zeroArray
     }
+
     
     func convertToMLMultiArray(intArray: [Int], dimension: [NSNumber]) -> MLMultiArray? {
         do {
