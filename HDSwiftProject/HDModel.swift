@@ -13,10 +13,10 @@ class HDModel {
     var totalLevel: Int
     var posIdNum: Int
     var levelList: [Double]
-    var levelHVs: [Int: [Int]]
-    var IDHVs: [Int: [Int]]
-    var trainHVs: Any // [[Int]]
-    var testHVs: [[Int]]
+    var levelHVs: [Int: [Double]]
+    var IDHVs: [Int: [Double]]
+    var trainHVs: [[Double]] // [[Int]]
+    var testHVs: [[Double]]
     var classHVs: [[Int]]
     
     init(trainData: [[Double]], trainLabels: [Int], testData: [[Double]], testLabels: [Int], D: Int, totalLevel: Int) {
@@ -36,6 +36,28 @@ class HDModel {
         self.levelList = getLevelList(trainData: trainData, totalLevel: totalLevel)
         self.levelHVs = genLevelHVs(totalLevel: totalLevel, D: D)
         self.IDHVs = genIDHVs(totalPos: posIdNum, D: D)
+    }
+    
+    func buildBufferHVs(mode: String, D: Int, dataset: String){
+        
+        if mode == "train"{
+            print("Encoding Training Data")
+            self.trainHVs = binarize(array: self.trainHVs)
+            // convert trainHVs into array of doubles
+            self.trainHVs = convertToArrayOfArrayOfDoubles(from: trainHVs)!
+            let IntIntclassHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: self.D)
+            self.classHVs = convertToArrayOfIntArrays(from: IntIntclassHVs!)!
+            
+            
+        }
+        else{
+            print("Encoding Testing Data")
+            
+            for index in 0..<testData.count{
+                self.testHVs.append(IDMultHV(inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+            }
+            let IntIntTestHVs = binarize(array: self.testHVs)
+        }
     }
     
     public func getLevelList(trainData: [[Double]], totalLevel: Int) -> [Double] { // shud be double
@@ -66,14 +88,16 @@ class HDModel {
         return levelList
     }
     
-    func genLevelHVs(totalLevel: Int, D: Int) -> [Int: [Int]] {
+    func genLevelHVs(totalLevel: Int, D: Int) -> [Int: [Double]] {
         print("generating level HVs")
-        var levelHVs: [Int: [Int]] = [:]
+        var levelHVs: [Int: [Double]] = [:]
         let change = D / 2
         let nextLevel = D / 2 / totalLevel
         
         for level in 0..<totalLevel {
-            var base = Array(repeating: -1, count: D)
+            let baseInt = Array(repeating: -1, count: D)
+            var base = baseInt.map { Double($0) }
+
             var toOne: [Int] = []
             
             if level == 0 {
@@ -100,17 +124,18 @@ class HDModel {
         return levelHVs
     }
     
-    func genIDHVs(totalPos: Int, D: Int) -> [Int: [Int]] {
+    func genIDHVs(totalPos: Int, D: Int) -> [Int: [Double]] {
         print("Generating ID HVs")
-        var IDHVs: [Int: [Int]] = [:]
+        var IDHVs: [Int: [Double]] = [:]
         let change = D / 2
         
         guard change <= D else {
-            fatalError("Are you seriooousss right neow bro")
+            fatalError("genIDHVs error")
         }
         
         for level in 0..<totalPos {
-            var base = Array(repeating: -1, count: D)
+            let baseInt = Array(repeating: -1, count: D)
+            var base = baseInt.map { Double($0) }
             var toOne: [Int] = []
             
             for _ in 1..<D {
@@ -131,21 +156,214 @@ class HDModel {
         return IDHVs
     }
     
-//    func buildBufferHVs(mode: String, D: Int, dataset: String){
+    
+
+    func binarize(array: [[Double]]) -> [[Double]]{
+        
+        let rows = array.count
+        let columns = array.first?.count ?? 0
+
+        var binarizedArray = zeros2D(columns: columns, rows: rows)
+        
+        for i in 0..<array.count{
+            for j in 0..<array[i].count{
+                if array[i][j] > 0{
+                    binarizedArray[i][j] = 1.0
+                }
+                else{
+                    binarizedArray[i][j] = -1.0
+                }
+            }
+        }
+        
+        return binarizedArray
+    }
+    
+    
+    func oneHVPerClass(inputLabels: [Int], inputHVs: [[Double]], D: Int) -> MLMultiArray? {
+        let numClasses = (inputLabels.max() ?? 0) + 1
+        
+        // creates 2D multiarray [numClasses, D]
+        guard let classHVs = try? MLMultiArray(shape: [NSNumber(value: numClasses), NSNumber(value: D)], dataType: .double) else {
+            print("oneHVPerClass error")
+            return nil
+        }
+        
+
+        for i in 0..<numClasses {
+            for j in 0..<D {
+                classHVs[[i, j] as [NSNumber]] = NSNumber(value: 0.0)
+            }
+        }
+        
+        
+        for (index, label) in inputLabels.enumerated() {
+            let hv = inputHVs[index]
+            for j in 0..<D {
+                let currentValue = classHVs[[label, j] as [NSNumber]].doubleValue
+                classHVs[[label, j] as [NSNumber]] = NSNumber(value: currentValue + hv[j]) // coreml operation
+            }
+        }
+        
+        return classHVs
+    }
+    
+
+    
+    
+    func IDMultHV(inputBuffer: [Double], D: Int, levelHVs: [Int: [Double]], levelList: [Double], IDHVs: [Int:[Double]]) -> [Double]?{
+        
+        
+//        var totalLevel = levelList.count - 1
+//        var totalPos = IDHVs.keys.count
+        var sumHV = zeros(size: D)!
+        
+        for keyVal in 0..<inputBuffer.count{
+            let IDHV = IDHVs[keyVal]
+            let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
+            let levelHV = levelHVs[key]
+            
+            for i in 0..<IDHV!.count {
+                sumHV[i] += IDHV![i] * levelHV![i]
+            }
+        }
+        
+        return sumHV
+    }
+    
+    func numToKey(value: Double, levelList: [Double]) -> Int{
+        let levelListValue = levelList.last
+        
+        if value == levelListValue {
+            return levelList.count - 2
+        }
+        var upperIndex = levelList.count - 1
+        var lowerIndex = 0
+        let keyIndex = 0
+        
+        while upperIndex > lowerIndex{
+            var keyIndex = Int((upperIndex+lowerIndex)/2)
+            
+            if levelList[keyIndex] <= value && levelList[keyIndex+1] > value{
+                return keyIndex
+            }
+            if levelList[keyIndex] > value{
+                upperIndex = keyIndex
+                keyIndex = Int((upperIndex + lowerIndex)/2)
+            }
+            else{
+               lowerIndex = keyIndex
+                keyIndex = Int((upperIndex+lowerIndex)/2)
+            }
+        }
+        return keyIndex
+    }
+    
+    func hamming_distance(x: [Double], y: [Double]) -> Double{
+        var count = 0.0
+        let totalCount = Double(x.count)
+        for i in 0..<x.count{
+            if( x[i] != y[i]){
+                count = count + 1.0
+            }
+        }
+        
+        return count
+    }
+//    func checkVector(classHVs: [[Int]], inputHV: [[Int]]){
+//        var guess = -1
+//        var maximum = -Double.infinity
+//        var count : [Double:Double] = [:]
 //        
-//        if mode == "train"{
-//            self.trainHVs = binarize(self.trainHVs, threshold: 2)
-//            // convert trainHVs into array of doubles
-//            self.trainHVs = convertToArrayOfArrayOfDoubles(from: trainHVs)
-//            let IntIntclassHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs as! [[Double]], D: self.D)
-//            self.classHVs = convertToArrayOfIntArrays(from: IntIntclassHVs!)!
-//            
-//            
-//        }
-//        else{
-//            let IntIntTestHVs = binarize(self.testHVs, threshold: 2)
+//        for key in 0...classHVs.count{
+//            count[key] = hamming_distance(classHVs[key], inputHV)
+//            if count[key] > maximum{
+//                guess = key
+//                maximum = count[key]
+//            }
 //        }
 //    }
+    
+//    func trainOneTime(classHVs: [[Double]], trainHVs: [[Double]], trainLabels: [Int]){
+//        
+//        var retClassHVs = classHVs
+//        var copyClassHVs = classHVs
+//        var classHVs_binary = binarize(array: copyClassHVs)
+//        var wrong_num = 0
+//        
+//        for i in 0...trainLabels.count{
+//            var guess = checkVector()
+//
+//        }
+//    }
+//   
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    func zeros(size: Int) -> [Double]? {
+        // Check if size is non-negative
+        guard size >= 0 else {
+            print("Size must be non-negative.")
+            return nil
+        }
+        
+        // Create an array of doubles filled with zeros
+        let zeroArray = [Double](repeating: 0.0, count: size)
+        
+        return zeroArray
+    }
+    
+    func zeros2D(columns: Int, rows: Int) -> [[Double]] {
+        
+        let zeroesArray: [[Double]] = Array(repeating: Array(repeating: 0, count: columns), count: rows)
+
+        // Create an array of doubles filled with zeros
+        
+        return zeroesArray
+    }
+
+    
+    func convertToMLMultiArray(intArray: [Int], dimension: [NSNumber]) -> MLMultiArray? {
+        do {
+            // create an MLMultiArray with the specified shape and data type (e.g., float32)
+            let multiArray = try MLMultiArray(shape: dimension, dataType: .float32)
+            
+            // populate MLMultiArray with values from the integer array
+            for (index, value) in intArray.enumerated() {
+                multiArray[index] = NSNumber(value: Float(value))
+            }
+            
+            return multiArray
+        } catch {
+            print("couldn't create ml array: \(error)")
+            return nil
+        }
+    }
+    
+    func convertToMLMultiArrayDouble(doubleArray: [Double], dimension: [NSNumber]) -> MLMultiArray? {
+        do {
+            let multiArray = try MLMultiArray(shape: dimension, dataType: .float32)
+            for (index, value) in doubleArray.enumerated() {
+                multiArray[index] = NSNumber(value: Float(value))
+            }
+            return multiArray
+        } catch {
+            print("couldn't create ml array: \(error)")
+            return nil
+        }
+    }
     
     // Function to convert `Any` to `[[Double]]`
     func convertToArrayOfArrayOfDoubles(from value: Any) -> [[Double]]? {
@@ -197,152 +415,6 @@ class HDModel {
         } else {
             // Handle the case where the type does not match
             print("not correct datatype convertToArrayOfIntArrays")
-            return nil
-        }
-    }
-
-    func binarize<T: Comparable & Numeric>(_ hypervector: Any, threshold: T) -> Any {
-
-        func binarizeLevel(_ array: [Any], threshold: T) -> [Any] {
-            return array.map { element in
-                if let subArray = element as? [Any] {
-                    return binarizeLevel(subArray, threshold: threshold)
-                } else if let value = element as? T {
-                    return value > threshold ? 1 : -1
-                } else {
-                    return element
-                }
-            }
-        }
-        
-        if let hypervector = hypervector as? [Any] {
-            return binarizeLevel(hypervector, threshold: threshold)
-        } else {
-            print("not an array")
-            return hypervector
-        }
-    }
-    
-    
-    func oneHVPerClass(inputLabels: [Int], inputHVs: [[Double]], D: Int) -> MLMultiArray? {
-        let numClasses = (inputLabels.max() ?? 0) + 1
-        
-        // creates 2D multiarray [numClasses, D]
-        guard let classHVs = try? MLMultiArray(shape: [NSNumber(value: numClasses), NSNumber(value: D)], dataType: .double) else {
-            print("oneHVPerClass error")
-            return nil
-        }
-        
-
-        for i in 0..<numClasses {
-            for j in 0..<D {
-                classHVs[[i, j] as [NSNumber]] = NSNumber(value: 0.0)
-            }
-        }
-        
-        
-        for (index, label) in inputLabels.enumerated() {
-            let hv = inputHVs[index]
-            for j in 0..<D {
-                let currentValue = classHVs[[label, j] as [NSNumber]].doubleValue
-                classHVs[[label, j] as [NSNumber]] = NSNumber(value: currentValue + hv[j]) // coreml operation
-            }
-        }
-        
-        return classHVs
-    }
-    
-
-    
-    
-    func IDMultHV(inputBuffer: [Double], D: Int, levelHVs: [Int: [Double]], levelList: [Double], IDHVs: [Int:[Double]]) -> [Double]?{
-        
-        
-        var totalLevel = levelList.count - 1
-        var totalPos = IDHVs.keys.count
-        var sumHV = zeros(size: D)!
-        
-        for keyVal in 0..<inputBuffer.count{
-            var IDHV = IDHVs[keyVal]
-            var key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
-            var levelHV = levelHVs[key]
-            
-            for i in 0..<IDHV!.count {
-                sumHV[i] += IDHV![i] * levelHV![i]
-            }
-        }
-        
-        return sumHV
-    }
-    
-    func numToKey(value: Double, levelList: [Double]) -> Int{
-        let levelListValue = levelList.last
-        
-        if value == levelListValue {
-            return levelList.count - 2
-        }
-        var upperIndex = levelList.count - 1
-        var lowerIndex = 0
-        let keyIndex = 0
-        
-        while upperIndex > lowerIndex{
-            var keyIndex = Int((upperIndex+lowerIndex)/2)
-            
-            if levelList[keyIndex] <= value && levelList[keyIndex+1] > value{
-                return keyIndex
-            }
-            if levelList[keyIndex] > value{
-                upperIndex = keyIndex
-                keyIndex = Int((upperIndex + lowerIndex)/2)
-            }
-            else{
-               lowerIndex = keyIndex
-                keyIndex = Int((upperIndex+lowerIndex)/2)
-            }
-        }
-        return keyIndex
-    }
-    
-    func zeros(size: Int) -> [Double]? {
-        // Check if size is non-negative
-        guard size >= 0 else {
-            print("Size must be non-negative.")
-            return nil
-        }
-        
-        // Create an array of doubles filled with zeros
-        let zeroArray = [Double](repeating: 0.0, count: size)
-        
-        return zeroArray
-    }
-
-    
-    func convertToMLMultiArray(intArray: [Int], dimension: [NSNumber]) -> MLMultiArray? {
-        do {
-            // create an MLMultiArray with the specified shape and data type (e.g., float32)
-            let multiArray = try MLMultiArray(shape: dimension, dataType: .float32)
-            
-            // populate MLMultiArray with values from the integer array
-            for (index, value) in intArray.enumerated() {
-                multiArray[index] = NSNumber(value: Float(value))
-            }
-            
-            return multiArray
-        } catch {
-            print("couldn't create ml array: \(error)")
-            return nil
-        }
-    }
-    
-    func convertToMLMultiArrayDouble(doubleArray: [Double], dimension: [NSNumber]) -> MLMultiArray? {
-        do {
-            let multiArray = try MLMultiArray(shape: dimension, dataType: .float32)
-            for (index, value) in doubleArray.enumerated() {
-                multiArray[index] = NSNumber(value: Float(value))
-            }
-            return multiArray
-        } catch {
-            print("couldn't create ml array: \(error)")
             return nil
         }
     }
