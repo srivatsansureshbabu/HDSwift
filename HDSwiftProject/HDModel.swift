@@ -17,7 +17,7 @@ class HDModel {
     var IDHVs: [Int: [Double]]
     var trainHVs: [[Double]] // [[Int]]
     var testHVs: [[Double]]
-    var classHVs: [[Int]]
+    var classHVs: [[Double]]
     
     init(trainData: [[Double]], trainLabels: [Int], testData: [[Double]], testLabels: [Int], D: Int, totalLevel: Int) {
         self.trainData = trainData
@@ -46,7 +46,7 @@ class HDModel {
             // convert trainHVs into array of doubles
             self.trainHVs = convertToArrayOfArrayOfDoubles(from: trainHVs)!
             let IntIntclassHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: self.D)
-            self.classHVs = convertToArrayOfIntArrays(from: IntIntclassHVs!)!
+            self.classHVs = convertToArrayOfArrayOfDoubles(from: IntIntclassHVs!)!
             
             
         }
@@ -259,30 +259,30 @@ class HDModel {
         return keyIndex
     }
     
-    func hamming_distance(x: [Double], y: [Double]) -> Double{
+    func hammingDistance(x: [Int], y: [Int]) -> Double{
         var count = 0.0
-        let totalCount = Double(x.count)
         for i in 0..<x.count{
             if( x[i] != y[i]){
                 count = count + 1.0
             }
         }
-        
-        return count
+
+        return Double(x.count) - count
     }
-//    func checkVector(classHVs: [[Int]], inputHV: [[Int]]){
-//        var guess = -1
-//        var maximum = -Double.infinity
-//        var count : [Double:Double] = [:]
-//        
-//        for key in 0...classHVs.count{
-//            count[key] = hamming_distance(classHVs[key], inputHV)
-//            if count[key] > maximum{
-//                guess = key
-//                maximum = count[key]
-//            }
-//        }
-//    }
+    func checkVector(classHVs: [[Int]], inputHV: [Int]) -> Int{
+        var guess = -1
+        var maximum = Int.min
+        var count : [Int:Int] = [:]
+        
+        for key in 0..<classHVs.count{
+            count[key] = Int(hammingDistance(x:classHVs[key], y:inputHV))
+            if count[key]! > maximum{
+                guess = key
+                maximum = count[key]!
+            }
+        }
+        return guess
+    }
     
 //    func trainOneTime(classHVs: [[Double]], trainHVs: [[Double]], trainLabels: [Int]){
 //        
