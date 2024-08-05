@@ -298,6 +298,7 @@ class HDModel {
         return guess
     }
     
+    // error rate doesn't work properly
     func trainOneTime(classHVs: [[Double]], trainHVs: [[Double]], trainLabels: [Int]) -> ([[Double]], Double){
         
         var retClassHVs = classHVs
@@ -309,9 +310,8 @@ class HDModel {
         for index in 0..<trainLabels.count{
             let guess = checkVector(classHVs: classHVs_binary, inputHV: trainHVs[index])
             
-            if trainLabels[index] != guess{
-                wrong_num += 1
-//                retClassHVs[guess] = retClassHVs[guess] - trainHVs[index] // coreml operation
+            if !(trainLabels[index] == guess){
+                wrong_num = wrong_num + 1
 
                 for i in 0..<retClassHVs[guess].count{
                     retClassHVs[guess][i] = retClassHVs[guess][i] - trainHVs[index][i]
@@ -319,16 +319,22 @@ class HDModel {
                 
                 for (i,x) in trainHVs[index].enumerated(){
                     retClassHVs[trainLabels[index]][i] = retClassHVs[trainLabels[index]][i] + x
-                }
-//                retClassHVs[trainLabels[index]] = retClassHVs[trainLabels[index]] + trainHVs[index]
+                } // element wise addition
+                
             }
         }
-        let error = Double(wrong_num/(trainLabels.count))
+        let error = Double(wrong_num)/Double(trainLabels.count)
         print("Error: " + String(error))
         return (retClassHVs,error)
     }
    
-    
+//    func trainNTimes(classHVs: [[Double]], trainHVs: [[Double]], trainLabels: [Int], testHVs: [[Double]], testLabels: [Int], n: Int){
+//        
+//        var accuracy: [Double] = []
+//        var currClassHVs = classHVs
+//        accuracy.append(test(currClassHVs,testHVs,testLabels))
+//
+//    }
     
     
     
