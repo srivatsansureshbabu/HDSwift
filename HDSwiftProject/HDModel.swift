@@ -156,8 +156,22 @@ class HDModel {
         return IDHVs
     }
     
+    func binarize(array:[Double]) -> [Double]{
+        var binarizedArray = [Int](repeating: 0, count: array.count)
+        for i in 0..<array.count{
+            if array[i] > 0{
+                binarizedArray[i] = 1
+            }
+            else{
+                binarizedArray[i] = -1
+            }
+        }
+        
+        return array
+        
+    }
     
-
+    
     func binarize(array: [[Double]]) -> [[Double]]{
         
         let rows = array.count
@@ -259,7 +273,7 @@ class HDModel {
         return keyIndex
     }
     
-    func hammingDistance(x: [Int], y: [Int]) -> Double{
+    func hammingDistance(x: [Double], y: [Double]) -> Double{
         var count = 0.0
         for i in 0..<x.count{
             if( x[i] != y[i]){
@@ -269,7 +283,7 @@ class HDModel {
 
         return Double(x.count) - count
     }
-    func checkVector(classHVs: [[Int]], inputHV: [Int]) -> Int{
+    func checkVector(classHVs: [[Double]], inputHV: [Double]) -> Int{
         var guess = -1
         var maximum = Int.min
         var count : [Int:Int] = [:]
@@ -284,19 +298,36 @@ class HDModel {
         return guess
     }
     
-//    func trainOneTime(classHVs: [[Double]], trainHVs: [[Double]], trainLabels: [Int]){
-//        
-//        var retClassHVs = classHVs
-//        var copyClassHVs = classHVs
-//        var classHVs_binary = binarize(array: copyClassHVs)
-//        var wrong_num = 0
-//        
-//        for i in 0...trainLabels.count{
-//            var guess = checkVector()
-//
-//        }
-//    }
-//   
+    func trainOneTime(classHVs: [[Double]], trainHVs: [[Double]], trainLabels: [Int]) -> ([[Double]], Double){
+        
+        var retClassHVs = classHVs
+        let copyClassHVs = classHVs
+        var classHVs_binary = binarize(array: copyClassHVs)
+        classHVs_binary = convertToArrayOfArrayOfDoubles(from: classHVs_binary)!
+        var wrong_num = 0
+        
+        for index in 0..<trainLabels.count{
+            let guess = checkVector(classHVs: classHVs_binary, inputHV: trainHVs[index])
+            
+            if trainLabels[index] != guess{
+                wrong_num += 1
+//                retClassHVs[guess] = retClassHVs[guess] - trainHVs[index] // coreml operation
+
+                for i in 0..<retClassHVs[guess].count{
+                    retClassHVs[guess][i] = retClassHVs[guess][i] - trainHVs[index][i]
+                } // element wise subtraction
+                
+                for (i,x) in trainHVs[index].enumerated(){
+                    retClassHVs[trainLabels[index]][i] = retClassHVs[trainLabels[index]][i] + x
+                }
+//                retClassHVs[trainLabels[index]] = retClassHVs[trainLabels[index]] + trainHVs[index]
+            }
+        }
+        let error = Double(wrong_num/(trainLabels.count))
+        print("Error: " + String(error))
+        return (retClassHVs,error)
+    }
+   
     
     
     
