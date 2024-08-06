@@ -15,7 +15,7 @@ class HDModel {
     var levelList: [Double]
     var levelHVs: [Int: [Double]]
     var IDHVs: [Int: [Double]]
-    var trainHVs: [[Double]] // [[Int]]
+    var trainHVs: [[Double]]
     var testHVs: [[Double]]
     var classHVs: [[Double]]
     
@@ -56,7 +56,8 @@ class HDModel {
             for index in 0..<testData.count{
                 self.testHVs.append(IDMultHV(inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
             }
-            let IntIntTestHVs = binarize(array: self.testHVs)
+            let DoubleDoubleTestHVs = binarize(array: self.testHVs)
+            self.testHVs = convertToArrayOfArrayOfDoubles(from: DoubleDoubleTestHVs)!
         }
     }
     
@@ -87,6 +88,7 @@ class HDModel {
         levelList.append(Double(maximum))
         return levelList
     }
+    
     
     func genLevelHVs(totalLevel: Int, D: Int) -> [Int: [Double]] {
         print("generating level HVs")
@@ -336,8 +338,19 @@ class HDModel {
 //
 //    }
     
-    
-    
+    func test (classHvs: [[Double]], testHVs: [[Double]], testLabels: [Int]) -> Double{
+        let classHvs_binary = binarize(array: classHvs)
+        var correct = 0
+        for index in 0..<testHVs.count{
+            let guess = checkVector(classHVs: classHvs_binary, inputHV: testHVs[index])
+            if testLabels[index] == guess {
+                correct += 1
+            }
+        }
+        let accuracy = (Double(correct) / Double(testLabels.count) )*100
+        print("The accuracy is: " + String (accuracy))
+        return Double((accuracy))
+    }
     
     
     
