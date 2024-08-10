@@ -4,7 +4,7 @@ import CreateMLComponents
 import Foundation
 //import CreateML
 
-class HDModel {
+public class HDModel {
     var trainData: [[Float]]
     var trainLabels: [Int]
     var testData: [[Float]]
@@ -43,31 +43,89 @@ class HDModel {
     
     
     
-//    func buildBufferHVs(mode: String, D: Int, dataset: String){
-//        
-//        if mode == "train"{
-//            
-//            print("Encoding Training Data")
-//            self.trainHVs = binarize(array: self.trainHVs)
-//            // convert trainHVs into array of doubles
-//            self.trainHVs = convertToArrayOfArrayOfDoubles(from: trainHVs)!
-//            let IntIntclassHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: self.D)
-//            self.classHVs = convertToArrayOfArrayOfDoubles(from: IntIntclassHVs!)!
-//            
-//            
-//        }
-//        else{
-//            print("Encoding Testing Data")
-//            
-//            for index in 0..<testData.count{
-//                self.testHVs.append(IDMultHV(inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
-//            }
-//            let DoubleDoubleTestHVs = binarize(array: self.testHVs)
-//            self.testHVs = convertToArrayOfArrayOfDoubles(from: DoubleDoubleTestHVs)!
-//        }
-//    }
+    func buildBufferHVs(mode: String, D: Int, dataset: String){
+        
+        if mode == "train"{
+            
+            print("Encoding Training Data")
+            for i in 0..<self.trainData.count{
+                self.trainHVs.append(IDMultHV(inputBuffer: self.trainData[i], D: D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+            }
+                
+                
+                
+            self.trainHVs = binarize(array: self.trainHVs)
+            // convert trainHVs into array of doubles
+            self.trainHVs = convertToArrayOfArrayOfFloats(from: trainHVs)!
+            let IntIntclassHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: self.D)
+            self.classHVs = convertToArrayOfArrayOfFloats(from: IntIntclassHVs!)!
+            
+            
+        }
+        else{
+            print("Encoding Testing Data")
+            
+            for index in 0..<testData.count{
+                self.testHVs.append(IDMultHV(inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+            }
+            let DoubleDoubleTestHVs = binarize(array: self.testHVs)
+            self.testHVs = convertToArrayOfArrayOfFloats(from: DoubleDoubleTestHVs)!
+        }
+    }
+//    func buildBufferHVs(mode: String, D: Int, dataset: String) {
+//          let fileManager = FileManager.default
+//          let directoryPath = "./../dataset/\(dataset)/"
+//          let fileName = "\(mode)_bufferHVs_\(D).json"
+//          let filePath = directoryPath + fileName
+//          if mode == "train" {
+//              if fileManager.fileExists(atPath: filePath) {
+//                  print("Loading Encoded Training Data")
+//                  if let data = fileManager.contents(atPath: filePath) {
+//                      do {
+//                          self.trainHVs = try JSONDecoder().decode([[Float]].self, from: data)
+//                      } catch {
+//                          print("Error decoding training data: \(error)")
+//                      }
+//                  }
+//              } else {
+//                  print("Encoding Training Data")
+//                  for item in trainData {
+//                      self.trainHVs.append(IDMultHV(inputBuffer: item, D: D, levelHVs: levelHVs, levelList: levelList, IDHVs: IDHVs)!)
+//                  }
+//                  if let data = try? JSONEncoder().encode(self.trainHVs) {
+//                      fileManager.createFile(atPath: filePath, contents: data, attributes: nil)
+//                  }
+//              }
+//              self.trainHVs = binarize(array: self.trainHVs)
+//              self.classHVs = convertToArrayOfArrayOfFloats(from: oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: D)!)!
+//              
+//          } else {
+//              let fileName = "test_bufferHVs_\(D).json"
+//              let filePath = directoryPath + fileName
+//              if fileManager.fileExists(atPath: filePath) {
+//                  print("Loading Encoded Testing Data")
+//                  if let data = fileManager.contents(atPath: filePath) {
+//                      do {
+//                          self.testHVs = try JSONDecoder().decode([[Float]].self, from: data)
+//                      } catch {
+//                          print("Error decoding testing data: \(error)")
+//                      }
+//                  }
+//              } else {
+//                  print("Encoding Testing Data")
+//                  for item in testData {
+//                      self.testHVs.append(IDMultHV(inputBuffer: item, D: D, levelHVs: levelHVs, levelList: levelList, IDHVs: IDHVs)!)
+//                  }
+//                  if let data = try? JSONEncoder().encode(self.testHVs) {
+//                      fileManager.createFile(atPath: filePath, contents: data, attributes: nil)
+//                  }
+//              }
+//              self.testHVs = binarize(array: self.testHVs)
+//          }
+//      }
     
-    public func getLevelList(trainData: [[Float]], totalLevel: Int) -> [Float] { // shud be double
+    
+    func getLevelList(trainData: [[Float]], totalLevel: Int) -> [Float] { // shud be double
         var minimum = trainData[0][0]
         var maximum = trainData[0][0]
         var levelList: [Float] = []
@@ -211,19 +269,12 @@ class HDModel {
             return nil
         }
         
-
-        for i in 0..<numClasses {
-            for j in 0..<D {
-                classHVs[[i, j] as [NSNumber]] = NSNumber(value: 0.0)
-            }
-        }
-        
         
         for (index, label) in inputLabels.enumerated() {
-            let hv = inputHVs[index]
+            let hv = inputHVs[index] // array
             for j in 0..<D {
                 let currentValue = classHVs[[label, j] as [NSNumber]].floatValue
-                classHVs[[label, j] as [NSNumber]] = NSNumber(value: currentValue + hv[j]) // coreml operation
+                classHVs[[label, j] as [NSNumber]] = NSNumber(value: currentValue + hv[j]) // coreml operation //
             }
         }
         
@@ -364,7 +415,13 @@ class HDModel {
         return Float((accuracy))
     }
     
-    
+    public static func buildHDModel(trainData: [[Float]], trainLabels: [Int], testData: [[Float]], testLabels: [Int], D: Int, nLevels: Int, datasetName: String) -> HDModel{
+        let model = HDModel(trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, totalLevel: nLevels)
+        model.buildBufferHVs(mode: "train", D: D, dataset: datasetName)
+        model.buildBufferHVs(mode: "test", D: D, dataset: datasetName)
+        
+        return model
+    }
     
     
     
