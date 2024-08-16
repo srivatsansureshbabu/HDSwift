@@ -2,7 +2,7 @@ import UIKit
 import CoreML
 import CreateMLComponents
 import Foundation
-//import CreateML
+import Accelerate
 
 public class HDModel {
     var trainData: [[Float]]
@@ -38,11 +38,6 @@ public class HDModel {
         self.IDHVs = genIDHVs(totalPos: posIdNum, D: D)
     }
     
-    
-    
-    
-    
-    
     func buildBufferHVs(mode: String, D: Int, dataset: String){
         
         if mode == "train"{
@@ -50,15 +45,15 @@ public class HDModel {
             print("Encoding Training Data")
             for i in 0..<self.trainData.count{
                 self.trainHVs.append(IDMultHV(inputBuffer: self.trainData[i], D: D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+                print( Float(i)/Float(self.trainData.count) )
             }
                 
                 
                 
             self.trainHVs = binarize(array: self.trainHVs)
-            // convert trainHVs into array of doubles
-            self.trainHVs = convertToArrayOfArrayOfFloats(from: trainHVs)!
-            let IntIntclassHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: self.D)
-            self.classHVs = convertToArrayOfArrayOfFloats(from: IntIntclassHVs!)!
+            
+            self.classHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: self.D)!
+//            self.classHVs = convertMLMultiArrayTo2DArray(val!)!
             
             
         }
@@ -68,62 +63,10 @@ public class HDModel {
             for index in 0..<testData.count{
                 self.testHVs.append(IDMultHV(inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
             }
-            let DoubleDoubleTestHVs = binarize(array: self.testHVs)
-            self.testHVs = convertToArrayOfArrayOfFloats(from: DoubleDoubleTestHVs)!
+            
+            self.testHVs = binarize(array: self.testHVs)
         }
     }
-//    func buildBufferHVs(mode: String, D: Int, dataset: String) {
-//          let fileManager = FileManager.default
-//          let directoryPath = "./../dataset/\(dataset)/"
-//          let fileName = "\(mode)_bufferHVs_\(D).json"
-//          let filePath = directoryPath + fileName
-//          if mode == "train" {
-//              if fileManager.fileExists(atPath: filePath) {
-//                  print("Loading Encoded Training Data")
-//                  if let data = fileManager.contents(atPath: filePath) {
-//                      do {
-//                          self.trainHVs = try JSONDecoder().decode([[Float]].self, from: data)
-//                      } catch {
-//                          print("Error decoding training data: \(error)")
-//                      }
-//                  }
-//              } else {
-//                  print("Encoding Training Data")
-//                  for item in trainData {
-//                      self.trainHVs.append(IDMultHV(inputBuffer: item, D: D, levelHVs: levelHVs, levelList: levelList, IDHVs: IDHVs)!)
-//                  }
-//                  if let data = try? JSONEncoder().encode(self.trainHVs) {
-//                      fileManager.createFile(atPath: filePath, contents: data, attributes: nil)
-//                  }
-//              }
-//              self.trainHVs = binarize(array: self.trainHVs)
-//              self.classHVs = convertToArrayOfArrayOfFloats(from: oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: D)!)!
-//              
-//          } else {
-//              let fileName = "test_bufferHVs_\(D).json"
-//              let filePath = directoryPath + fileName
-//              if fileManager.fileExists(atPath: filePath) {
-//                  print("Loading Encoded Testing Data")
-//                  if let data = fileManager.contents(atPath: filePath) {
-//                      do {
-//                          self.testHVs = try JSONDecoder().decode([[Float]].self, from: data)
-//                      } catch {
-//                          print("Error decoding testing data: \(error)")
-//                      }
-//                  }
-//              } else {
-//                  print("Encoding Testing Data")
-//                  for item in testData {
-//                      self.testHVs.append(IDMultHV(inputBuffer: item, D: D, levelHVs: levelHVs, levelList: levelList, IDHVs: IDHVs)!)
-//                  }
-//                  if let data = try? JSONEncoder().encode(self.testHVs) {
-//                      fileManager.createFile(atPath: filePath, contents: data, attributes: nil)
-//                  }
-//              }
-//              self.testHVs = binarize(array: self.testHVs)
-//          }
-//      }
-    
     
     func getLevelList(trainData: [[Float]], totalLevel: Int) -> [Float] { // shud be double
         var minimum = trainData[0][0]
@@ -260,10 +203,10 @@ public class HDModel {
     }
     
     
-    func oneHVPerClass(inputLabels: [Int], inputHVs: [[Float]], D: Int) -> MLMultiArray? {
+    func oneHVPerClass(inputLabels: [Int], inputHVs: [[Float]], D: Int) -> [[Float]]?{
         let numClasses = (inputLabels.max() ?? 0) + 1
         
-        // creates 2D multiarray [numClasses, D]
+//         creates 2D multiarray [numClasses, D]
         guard let classHVs = try? MLMultiArray(shape: [NSNumber(value: numClasses), NSNumber(value: D)], dataType: .float32) else {
             print("oneHVPerClass error")
             return nil
@@ -278,7 +221,8 @@ public class HDModel {
             }
         }
         
-        return classHVs
+        
+        return convertMLMultiArrayTo2DArray(classHVs)
     }
     
 
@@ -286,9 +230,6 @@ public class HDModel {
     
     func IDMultHV(inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
         
-        
-//        var totalLevel = levelList.count - 1
-//        var totalPos = IDHVs.keys.count
         var sumHV = zeros(size: D)!
         
         for keyVal in 0..<inputBuffer.count{
@@ -380,6 +321,7 @@ public class HDModel {
                     retClassHVs[trainLabels[index]][i] = retClassHVs[trainLabels[index]][i] + x
                 } // element wise addition
                 
+//                retClassHVs[trainLabels[index]] = performElementWiseAddition(inputArray1: retClassHVs[trainLabels[index]], inputArray2: trainHVs[index])!
             }
         }
         let error = Float(wrong_num)/Float(trainLabels.count)
@@ -428,7 +370,77 @@ public class HDModel {
     
     
     
+    // Define a function to perform element-wise addition
+    func performElementWiseAddition(model: ElementwiseAdd, inputArray1: [Float], inputArray2: [Float]) -> [Float]? {
+//         Load the model
+
     
+        
+        guard let input1 = createMLMultiArray(from: inputArray1, shape: [1, 10]),
+              let input2 = createMLMultiArray(from: inputArray2, shape: [1, 10]) else {
+            fatalError("Failed to create input arrays")
+        }
+
+        // Perform prediction
+        do {
+            let prediction = try model.prediction(input1: input1, input2: input2)
+
+            // Access and print the result using the output name 'Identity'
+            if let result = prediction.Identity as? MLMultiArray { // 'Identity' is the output name
+                if let resultArray = multiArrayToFloatArray(result) {
+//                    print("Result Array: \(resultArray)")
+                    return resultArray
+                } else {
+                    print("Failed to convert result to array")
+                    return nil
+                    
+                }
+            }
+        } catch {
+            print("Error making prediction: \(error)")
+            return nil
+        }
+        
+
+        
+
+    }
+
+    
+    
+    // Convert MLMultiArray to [Float]
+    func multiArrayToFloatArray(_ multiArray: MLMultiArray) -> [Float]? {
+        // Check if the MLMultiArray has the right data type
+        guard multiArray.dataType == .float32 else {
+            print("Unsupported data type")
+            return nil
+        }
+
+        // Convert MLMultiArray to [Float] using a more direct approach
+        let count = multiArray.count
+        var array = [Float](repeating: 0, count: count)
+
+        for i in 0..<count {
+            // Use `floatValue` to access the values
+            array[i] = multiArray[i].floatValue
+        }
+        
+        return array
+    }
+
+    // Helper function to create MLMultiArray from array with specified shape
+    func createMLMultiArray(from array: [Float], shape: [Int]) -> MLMultiArray? {
+        do {
+            let multiArray = try MLMultiArray(shape: shape.map { NSNumber(value: $0) }, dataType: .float32)
+            for (index, value) in array.enumerated() {
+                multiArray[index] = NSNumber(value: value)
+            }
+            return multiArray
+        } catch {
+            print("Error creating MLMultiArray: \(error)")
+            return nil
+        }
+    }
     
     
     func zeros(size: Int) -> [Float]? {
@@ -520,11 +532,40 @@ public class HDModel {
         }
         // Handle other types as needed
         else {
+            
             print("Error: The value is not of a supported type.")
+//            print(value)
             return nil
         }
     }
-    
+
+    func convertMLMultiArrayTo2DArray(_ multiArray: MLMultiArray) -> [[Float]]? {
+        // Check if the MLMultiArray is 2D
+        guard multiArray.shape.count == 2 else {
+            print("The MLMultiArray is not 2D.")
+            return nil
+        }
+        
+        let rows = multiArray.shape[0].intValue
+        let columns = multiArray.shape[1].intValue
+        
+        // Initialize a 2D array with the appropriate dimensions
+        var result = [[Float]](repeating: [Float](repeating: 0.0, count: columns), count: rows)
+        
+        // Extract data from MLMultiArray
+        let dataPointer = multiArray.dataPointer.bindMemory(to: Float.self, capacity: multiArray.count)
+        
+        // Populate the 2D array
+        for row in 0..<rows {
+            for column in 0..<columns {
+                let index = row * columns + column
+                result[row][column] = dataPointer[index]
+            }
+        }
+        
+        return result
+    }
+
     
     // Function to convert Any to [[Int]]
     func convertToArrayOfIntArrays(from value: Any) -> [[Int]]? {
