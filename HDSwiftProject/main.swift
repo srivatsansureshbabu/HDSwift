@@ -1,3 +1,10 @@
+//
+//  main.swift
+//  HDSwiftProject
+//
+//  Created by Srivatsan Suresh Babu on 8/15/24.
+//
+
 import Foundation
 import CoreML
 
@@ -70,18 +77,14 @@ if let (trainData, trainLabels, testData, testLabels) = loadIsoletData() {
     
     let model = HDModel.buildHDModel(trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, nLevels: nLevels, datasetName: "isolet")
 
-    let config = MLModelConfiguration()
-    config.computeUnits = .all // Or choose .cpuAndGPU if you're on a Mac
+
+    let elementWiseAdder = try ElementwiseAdd(configuration: MLModelConfiguration())
+        
+
     
-    guard let elementWiseAdder = try? ElementwiseAdd(configuration: config) else {
-        fatalError("Failed to load model")
-    }
+    let accuracy = model.trainNTimes(model: elementWiseAdder, classHVs: model.classHVs, trainHVs: model.trainHVs, trainLabels: model.trainLabels, testHVs: model.testHVs, testLabels: model.testLabels, n: n)
     
-    print(model.performElementWiseAddition(model: elementWiseAdder, inputArray1: [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0], inputArray2: [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) ?? 6789998212)
-    
-//    let accuracy = model.trainNTimes(classHVs: model.classHVs, trainHVs: model.trainHVs, trainLabels: model.trainLabels, testHVs: model.testHVs, testLabels: model.testLabels, n: n)
-    
-//    print("the maximum accuracy is: " + String(accuracy.max()!) )
+    print("the maximum accuracy is: " + String(accuracy.max()!) )
 } else {
     print("Failed to load the data.")
 }
