@@ -1,171 +1,90 @@
-//
-//  main.swift
-//  HDSwiftProject
-//
-//  Created by Srivatsan Suresh Babu on 7/18/24.
-//
 import Foundation
 import CoreML
-print("hello world")
 
-func readLastColumnAsIntegers(from csvFile: String) -> [Int] {
-    // Get the file URL from the app bundle
-    guard let fileURL = Bundle.main.url(forResource: csvFile, withExtension: "csv") else {
-        fatalError("File not found")
-    }
-    
-    do {
-        // Read the contents of the file into a string
-        let csvData = try String(contentsOf: fileURL, encoding: .utf8)
+func loadIsoletData() -> ([[Float]], [Int], [[Float]], [Int])? {
+    // Access the file in the app bundle
+    if let filePath = Bundle.main.path(forResource: "isolet_train", ofType: "json") {
+        print("File path: \(filePath)")
         
-        // Split the CSV data into rows based on newlines
-        let rows = csvData.split(separator: "\n").filter { !$0.isEmpty }
-        
-        // Initialize an array to store the last column values as integers
-        var lastColumn = [Int]()
-        
-        // Iterate over each row
-        for (index, row) in rows.enumerated() {
-            // Split the row into columns based on commas
-            let columns = row.split(separator: ",")
+        do {
+            // Read the file data
+            let fileData = try Data(contentsOf: URL(fileURLWithPath: filePath))
             
-            // Check if the row has at least one column
-            if let lastString = columns.last {
-                let trimmedString = lastString.trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                // Attempt to convert the last column value to an integer
-                if let lastInt = Int(trimmedString) {
-                    // Add the integer value to the lastColumn array
-                    lastColumn.append(lastInt)
-                } else {
-                    // Handle the case where the conversion to integer fails
-                    fatalError("Conversion to integer failed for value: '\(trimmedString)' in row \(index + 1)")
+            // Decode the JSON data
+            let decoder = JSONDecoder()
+            let isoletData = try decoder.decode(IsoletData.self, from: fileData)
+            
+            // Extract features and labels for trainData
+            let trainFeaturesDict = isoletData.trainData.features
+            let trainLabelsArray = isoletData.trainData.labels
+            
+            // Convert dictionary to array for trainData
+            var trainData: [[Float]] = []
+            let sortedTrainKeys = trainFeaturesDict.keys.sorted { Int($0)! < Int($1)! }
+            
+            for key in sortedTrainKeys {
+                if let features = trainFeaturesDict[key] {
+                    trainData.append(features)
                 }
             }
+            
+            // Extract trainLabels directly
+            let trainLabels = trainLabelsArray
+            
+            // Extract features and labels for testData
+            let testFeaturesDict = isoletData.testData.features
+            let testLabelsArray = isoletData.testData.labels
+            
+            // Convert dictionary to array for testData
+            var testData: [[Float]] = []
+            let sortedTestKeys = testFeaturesDict.keys.sorted { Int($0)! < Int($1)! }
+            
+            for key in sortedTestKeys {
+                if let features = testFeaturesDict[key] {
+                    testData.append(features)
+                }
+            }
+            
+            // Extract testLabels directly
+            let testLabels = testLabelsArray
+            
+            // Return the data
+            return (trainData, trainLabels, testData, testLabels)
+            
+        } catch {
+            print("Failed to load or decode JSON with error: \(error)")
+            return nil
         }
-        
-        // Return the array of last column values as integers
-        return lastColumn
-    } catch {
-        // Handle any errors that occur during file reading
-        fatalError("Error reading file: \(error)")
+    } else {
+        print("File not found in bundle")
+        return nil
     }
 }
 
 
-func readAllRowsExceptTopAsDoubles(from csvFile: String) -> [[Double]] {
-    // Get the file URL from the app bundle
-    guard let fileURL = Bundle.main.url(forResource: csvFile, withExtension: "csv") else {
-        fatalError("File not found")
-    }
-    
-    do {
-        // Read the contents of the file into a string
-        let csvData = try String(contentsOf: fileURL, encoding: .utf8)
-        
-        // Split the CSV data into rows based on newlines
-        let rows = csvData.split(separator: "\n")
-        
-        // Check if there are at least two rows (one header and at least one data row)
-        guard rows.count > 1 else {
-            fatalError("CSV file does not contain enough rows")
-        }
-        
-        // Initialize an array to store the processed rows as arrays of doubles
-        var result = [[Double]]()
-        
-        // Skip the first row (header) and process the remaining rows
-        for (index, row) in rows.dropFirst().enumerated() {
-            // Split the row into columns based on commas and convert each column to a double
-            let doubleRow = row.split(separator: ",").compactMap { column -> Double? in
-                let trimmedColumn = column.trimmingCharacters(in: .whitespacesAndNewlines)
-                if let value = Double(trimmedColumn) {
-                    return value
-                } else {
-                    print("Conversion to double failed for value: \(trimmedColumn) in row \(index + 2)")
-                    return nil
-                }
-            }
-            
-            // Ensure the entire row was successfully converted before adding it to the result
-            if doubleRow.count == row.split(separator: ",").count {
-                result.append(doubleRow)
-            } else {
-                fatalError("Failed to convert entire row \(index + 2) to doubles")
-            }
-        }
-        
-        // Return the array of rows as arrays of doubles
-        return result
-    } catch {
-        // Handle any errors that occur during file reading
-        fatalError("Error reading file: \(error)")
-    }
-}
-
-
-// Usage example
-var testLabels = readLastColumnAsIntegers(from: "isolet_testInt")
-var trainLabels = readLastColumnAsIntegers(from: "isolet_trainInt")
-var testData = readAllRowsExceptTopAsDoubles(from: "isolet_testInt")
-var trainData = readAllRowsExceptTopAsDoubles(from: "isolet_trainInt")
-
-// Example predefined train data
-//let trainData: [[Double]] = [
-//    [0.1, 0.2, 0.3, 0.4, 0.5],
-//    [0.6, 0.7, 0.8, 0.9, 1.0],
-//    [0.2, 0.3, 0.4, 0.5, 0.6],
-//    [0.7, 0.8, 0.9, 1.0, 0.1],
-//    [0.3, 0.4, 0.5, 0.6, 0.7],
-//    [0.4, 0.5, 0.6, 0.7, 0.8],
-//    [0.5, 0.6, 0.7, 0.8, 0.9],
-//    [0.8, 0.9, 1.0, 0.1, 0.2],
-//    [0.9, 1.0, 0.1, 0.2, 0.3],
-//    [1.0, 0.1, 0.2, 0.3, 0.4],
-//    [0.3, 0.4, 0.5, 0.6, 0.7],
-//    [0.4, 0.5, 0.6, 0.7, 0.8],
-//    [0.5, 0.6, 0.7, 0.8, 0.9],
-//    [0.6, 0.7, 0.8, 0.9, 1.0],
-//    [0.7, 0.8, 0.9, 1.0, 0.1],
-//    [0.8, 0.9, 1.0, 0.1, 0.2],
-//    [0.9, 1.0, 0.1, 0.2, 0.3],
-//    [1.0, 0.1, 0.2, 0.3, 0.4],
-//    [0.2, 0.3, 0.4, 0.5, 0.6],
-//    [0.3, 0.4, 0.5, 0.6, 0.7],
-//    [0.4, 0.5, 0.6, 0.7, 0.8],
-//    [0.5, 0.6, 0.7, 0.8, 0.9],
-//    [0.6, 0.7, 0.8, 0.9, 1.0],
-//    [0.7, 0.8, 0.9, 1.0, 0.1],
-//    [0.8, 0.9, 1.0, 0.1, 0.2],
-//    [0.9, 1.0, 0.1, 0.2, 0.3]
-//]
-//
-//// Example predefined train labels
-//let trainLabels: [Int] = Array(1...26)
-//
-//// Example predefined test data
-//let testData: [[Double]] = [
-//    [0.5, 0.4, 0.3, 0.2, 0.1],
-//    [1.0, 0.9, 0.8, 0.7, 0.6],
-//    [0.6, 0.5, 0.4, 0.3, 0.2],
-//    [0.7, 0.6, 0.5, 0.4, 0.3],
-//    [0.8, 0.7, 0.6, 0.5, 0.4],
-//    [0.9, 0.8, 0.7, 0.6, 0.5],
-//    [1.0, 0.9, 0.8, 0.7, 0.6],
-//    [0.1, 0.2, 0.3, 0.4, 0.5],
-//    [0.2, 0.3, 0.4, 0.5, 0.6],
-//    [0.3, 0.4, 0.5, 0.6, 0.7]
-//]
-
-// Example predefined test labels
-//let testLabels: [Int] = Array(1...10)
-
-let D = 10000
+let D = 10
 let nLevels = 100
 let n = 10
-var model = HDModel(trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, totalLevel: nLevels)
 
-let levelList = model.getLevelList( trainData: trainData, totalLevel: nLevels)
+if let (trainData, trainLabels, testData, testLabels) = loadIsoletData() {
+    
+    let model = HDModel.buildHDModel(trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, nLevels: nLevels, datasetName: "isolet")
 
-print("YOOOOOP")
-print(type(of: testData))
+    let config = MLModelConfiguration()
+    config.computeUnits = .all // Or choose .cpuAndGPU if you're on a Mac
+    
+    guard let elementWiseAdder = try? ElementwiseAdd(configuration: config) else {
+        fatalError("Failed to load model")
+    }
+    
+    print(model.performElementWiseAddition(model: elementWiseAdder, inputArray1: [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0], inputArray2: [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]) ?? 6789998212)
+    
+//    let accuracy = model.trainNTimes(classHVs: model.classHVs, trainHVs: model.trainHVs, trainLabels: model.trainLabels, testHVs: model.testHVs, testLabels: model.testLabels, n: n)
+    
+//    print("the maximum accuracy is: " + String(accuracy.max()!) )
+} else {
+    print("Failed to load the data.")
+}
+
+
+
