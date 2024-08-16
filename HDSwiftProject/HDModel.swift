@@ -238,6 +238,8 @@ public class HDModel {
             let levelHV = levelHVs[key]
             
             for i in 0..<IDHV!.count {
+                print(levelHV!.count)
+                print(IDHV!.count)
                 sumHV[i] += IDHV![i] * levelHV![i]
             }
         }
@@ -299,7 +301,7 @@ public class HDModel {
     }
     
     // error rate doesn't work properly
-    func trainOneTime(classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int]) -> ([[Float]], Float){
+    func trainOneTime(model: ElementwiseAdd, classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int]) -> ([[Float]], Float){
         
         var retClassHVs = classHVs
         let copyClassHVs = classHVs
@@ -317,11 +319,16 @@ public class HDModel {
                     retClassHVs[guess][i] = retClassHVs[guess][i] - trainHVs[index][i]
                 } // element wise subtraction
                 
-                for (i,x) in trainHVs[index].enumerated(){
-                    retClassHVs[trainLabels[index]][i] = retClassHVs[trainLabels[index]][i] + x
-                } // element wise addition
+//                print(trainHVs[index].count)
+//                print(retClassHVs[trainLabels[index]].count)
                 
-//                retClassHVs[trainLabels[index]] = performElementWiseAddition(inputArray1: retClassHVs[trainLabels[index]], inputArray2: trainHVs[index])!
+//                for (i,x) in trainHVs[index].enumerated(){
+//                    retClassHVs[trainLabels[index]][i] = retClassHVs[trainLabels[index]][i] + x
+//                    
+//                } // element wise addition
+                
+                // element wise addition
+                retClassHVs[trainLabels[index]] = performElementWiseAddition(model: model, inputArray1: retClassHVs[trainLabels[index]], inputArray2: trainHVs[index])!
             }
         }
         let error = Float(wrong_num)/Float(trainLabels.count)
@@ -329,7 +336,7 @@ public class HDModel {
         return (retClassHVs,error)
     }
    
-    func trainNTimes(classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int], testHVs: [[Float]], testLabels: [Int], n: Int) -> [Float]{
+    func trainNTimes(model: ElementwiseAdd, classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int], testHVs: [[Float]], testLabels: [Int], n: Int) -> [Float]{
 
         var accuracy: [Float] = []
         var currClassHVs = classHVs
@@ -337,7 +344,7 @@ public class HDModel {
         
         for i in 0..<n{
             print("iteration: " + String(i))
-            let (currClassHVs,error) = trainOneTime(classHVs: currClassHVs, trainHVs: trainHVs, trainLabels: trainLabels)
+            let (currClassHVs,error) = trainOneTime(model: model, classHVs: currClassHVs, trainHVs: trainHVs, trainLabels: trainLabels)
             accuracy.append(test(classHVs: currClassHVs, testHVs: testHVs, testLabels: testLabels))
         }
         return accuracy
