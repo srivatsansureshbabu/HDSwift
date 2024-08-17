@@ -38,22 +38,22 @@ public class HDModel {
         self.IDHVs = genIDHVs(totalPos: posIdNum, D: D)
     }
     
-    func buildBufferHVs(mode: String, D: Int, dataset: String){
+    func buildBufferHVs(modelMultiply: ElementWiseMultiplication10x10, modelAdd: ElementWiseAddition_2D_to_1D, mode: String, D: Int, dataset: String){
         
         if mode == "train"{
             
             print("Encoding Training Data")
             for i in 0..<self.trainData.count{
-                self.trainHVs.append(IDMultHV(inputBuffer: self.trainData[i], D: D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+                self.trainHVs.append(IDMultHV(modelMultiply: modelMultiply, modelAdd: modelAdd, inputBuffer: self.trainData[i], D: D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
                 print( Float(i)/Float(self.trainData.count) )
             }
-                
-                
-                
+            
+            
+            
             self.trainHVs = binarize(array: self.trainHVs)
             
             self.classHVs = oneHVPerClass(inputLabels: self.trainLabels, inputHVs: self.trainHVs, D: self.D)!
-//            self.classHVs = convertMLMultiArrayTo2DArray(val!)!
+            //            self.classHVs = convertMLMultiArrayTo2DArray(val!)!
             
             
         }
@@ -61,12 +61,102 @@ public class HDModel {
             print("Encoding Testing Data")
             
             for index in 0..<testData.count{
-                self.testHVs.append(IDMultHV(inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+                self.testHVs.append(IDMultHV(modelMultiply: modelMultiply, modelAdd: modelAdd, inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+                print( Float(index)/Float(self.testData.count) )
+                
             }
             
             self.testHVs = binarize(array: self.testHVs)
         }
     }
+    
+    func IDMultHV(modelMultiply: ElementWiseMultiplication10x10, modelAdd: ElementWiseAddition_2D_to_1D, inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
+
+        var sumHV = zeros(size: D)!
+        
+        for keyVal in 0..<inputBuffer.count{
+            let IDHV = IDHVs[keyVal]
+            let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
+            let levelHV = levelHVs[key]
+            
+            if keyVal < 5 {
+                print("IDHVS: \n\n")
+                print(IDHV!) // D dimensionality
+                print("levelHVs: \n\n")
+                print(levelHV!) // D dimensionality
+            }
+            
+            // element wise multiply them
+            for i in 0..<IDHV!.count {
+                sumHV[i] += IDHV![i] * levelHV![i]
+            }
+            
+            
+            // is there a way we could make IDHV and levelHV into a 2D array and then do operations based on that, and put them into a 1D array?
+        }
+        
+        
+        return sumHV
+    }
+    
+    
+    
+//    func IDMultHV(modelMultiply: ElementWiseMultiplication10x10, modelAdd: ElementWiseAddition_2D_to_1D, inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
+//    
+////            var sumHV = zeros(size: D)!
+//    
+//            let IDHVs2D: [[Float]] = Array(IDHVs.values) // converts IDHVs into a 2D array
+//            var levelHVs2D: [[Float]] = Array(levelHVs.values) // converts levelHVs into a 2D array
+//    
+//    
+//            for keyVal in 0..<inputBuffer.count{
+//                let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
+//                levelHVs2D[keyVal] = levelHVs[key]!
+//            }
+//        
+//            // element-wise multiplies and adds it into sumHV
+//            
+//             var elementWiseMultiplied = performElementWiseMultiplication(model: modelMultiply, inputArray1: IDHVs2D, inputArray2: levelHVs2D)
+//            
+//             var sumHV = performElementWiseAddition(model: modelAdd, inputArray1: elementWiseMultiplied!)
+////                for j in 0..<IDHVs2D.count{
+////    
+////                    for k in 0..<IDHVs2D[j].count{
+////                        sumHV[k] += IDHVs2D[j][k] * levelHVs2D[j][k]
+////                    }
+////                    print(sumHV)
+////                }
+//    
+//                // is there a way we could make IDHV and levelHV into a 2D array and then do operations based on that, and put them into a 1D array?
+//    
+//            return sumHV
+//        }
+//    
+    
+    
+    //    func IDMultHV(model: ElementWiseMultiplication10000, inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]? {
+    //
+    //        // Initialize sumHV with zeros
+    //        var sumHV = zeros(size: D)!
+    //
+    //        for keyVal in 0..<inputBuffer.count {
+    //
+    //            // Assuming valid data, directly retrieve IDHV and levelHV
+    //            let IDHV = IDHVs[keyVal]!
+    //            let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
+    //            let levelHV = levelHVs[key]!
+    //
+    //            // Perform element-wise multiplication directly
+    //            let sumHV = performElementWiseMultiplication(model: model, inputArray1: IDHV, inputArray2: levelHV)!
+    //
+    //        }
+    //
+    //        return sumHV
+    //    }
+    
+    
+    
+    
     
     func getLevelList(trainData: [[Float]], totalLevel: Int) -> [Float] { // shud be double
         var minimum = trainData[0][0]
@@ -106,7 +196,7 @@ public class HDModel {
         for level in 0..<totalLevel {
             let baseInt = Array(repeating: -1, count: D)
             var base = baseInt.map { Float($0) }
-
+            
             var toOne: [Int] = []
             
             if level == 0 {
@@ -185,7 +275,7 @@ public class HDModel {
         
         let rows = array.count
         let columns = array.first?.count ?? 0
-
+        
         var binarizedArray = zeros2D(columns: columns, rows: rows)
         
         for i in 0..<array.count{
@@ -206,7 +296,7 @@ public class HDModel {
     func oneHVPerClass(inputLabels: [Int], inputHVs: [[Float]], D: Int) -> [[Float]]?{
         let numClasses = (inputLabels.max() ?? 0) + 1
         
-//         creates 2D multiarray [numClasses, D]
+        //         creates 2D multiarray [numClasses, D]
         guard let classHVs = try? MLMultiArray(shape: [NSNumber(value: numClasses), NSNumber(value: D)], dataType: .float32) else {
             print("oneHVPerClass error")
             return nil
@@ -223,28 +313,6 @@ public class HDModel {
         
         
         return convertMLMultiArrayTo2DArray(classHVs)
-    }
-    
-
-    
-    
-    func IDMultHV(inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
-        
-        var sumHV = zeros(size: D)!
-        
-        for keyVal in 0..<inputBuffer.count{
-            let IDHV = IDHVs[keyVal]
-            let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
-            let levelHV = levelHVs[key]
-            
-            for i in 0..<IDHV!.count {
-                print(levelHV!.count)
-                print(IDHV!.count)
-                sumHV[i] += IDHV![i] * levelHV![i]
-            }
-        }
-        
-        return sumHV
     }
     
     func numToKey(value: Float, levelList: [Float]) -> Int{
@@ -268,7 +336,7 @@ public class HDModel {
                 keyIndex = Int((upperIndex + lowerIndex)/2)
             }
             else{
-               lowerIndex = keyIndex
+                lowerIndex = keyIndex
                 keyIndex = Int((upperIndex+lowerIndex)/2)
             }
         }
@@ -282,7 +350,7 @@ public class HDModel {
                 count = count + 1.0
             }
         }
-
+        
         return Float(x.count) - Float(count)
     }
     func checkVector(classHVs: [[Float]], inputHV: [Float]) -> Int{
@@ -301,7 +369,7 @@ public class HDModel {
     }
     
     // error rate doesn't work properly
-    func trainOneTime(model: ElementwiseAdd, classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int]) -> ([[Float]], Float){
+    func trainOneTime(classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int]) -> ([[Float]], Float){
         
         var retClassHVs = classHVs
         let copyClassHVs = classHVs
@@ -314,37 +382,37 @@ public class HDModel {
             
             if !(trainLabels[index] == guess){
                 wrong_num = wrong_num + 1
-
+                
                 for i in 0..<retClassHVs[guess].count{
                     retClassHVs[guess][i] = retClassHVs[guess][i] - trainHVs[index][i]
                 } // element wise subtraction
                 
-//                print(trainHVs[index].count)
-//                print(retClassHVs[trainLabels[index]].count)
-                
-//                for (i,x) in trainHVs[index].enumerated(){
-//                    retClassHVs[trainLabels[index]][i] = retClassHVs[trainLabels[index]][i] + x
-//                    
-//                } // element wise addition
+                for (i,x) in trainHVs[index].enumerated(){
+                    retClassHVs[trainLabels[index]][i] = retClassHVs[trainLabels[index]][i] + x
+                    
+                } // element wise addition
                 
                 // element wise addition
-                retClassHVs[trainLabels[index]] = performElementWiseAddition(model: model, inputArray1: retClassHVs[trainLabels[index]], inputArray2: trainHVs[index])!
+                //                retClassHVs[trainLabels[index]] = performElementWiseAddition(model: model, inputArray1: retClassHVs[trainLabels[index]], inputArray2: trainHVs[index])!
+                
+                //                classHVs_binary[guess] = binarize(array: retClassHVs[guess])
+                //                classHVs_binary[trainLabels[index]] = binarize(array: retClassHVs[trainLabels[index]])
             }
         }
         let error = Float(wrong_num)/Float(trainLabels.count)
         print("Error: " + String(error))
         return (retClassHVs,error)
     }
-   
-    func trainNTimes(model: ElementwiseAdd, classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int], testHVs: [[Float]], testLabels: [Int], n: Int) -> [Float]{
-
+    
+    func trainNTimes(classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int], testHVs: [[Float]], testLabels: [Int], n: Int) -> [Float]{
+        
         var accuracy: [Float] = []
         var currClassHVs = classHVs
         accuracy.append(test(classHVs: currClassHVs,testHVs: testHVs,testLabels: testLabels))
         
         for i in 0..<n{
             print("iteration: " + String(i))
-            let (currClassHVs,error) = trainOneTime(model: model, classHVs: currClassHVs, trainHVs: trainHVs, trainLabels: trainLabels)
+            let (currClassHVs,error) = trainOneTime(classHVs: currClassHVs, trainHVs: trainHVs, trainLabels: trainLabels)
             accuracy.append(test(classHVs: currClassHVs, testHVs: testHVs, testLabels: testLabels))
         }
         return accuracy
@@ -364,10 +432,10 @@ public class HDModel {
         return Float((accuracy))
     }
     
-    public static func buildHDModel(trainData: [[Float]], trainLabels: [Int], testData: [[Float]], testLabels: [Int], D: Int, nLevels: Int, datasetName: String) -> HDModel{
+    static func buildHDModel(modelMultiply: ElementWiseMultiplication10x10, modelAdd: ElementWiseAddition_2D_to_1D, trainData: [[Float]], trainLabels: [Int], testData: [[Float]], testLabels: [Int], D: Int, nLevels: Int, datasetName: String) -> HDModel{
         let model = HDModel(trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, totalLevel: nLevels)
-        model.buildBufferHVs(mode: "train", D: D, dataset: datasetName)
-        model.buildBufferHVs(mode: "test", D: D, dataset: datasetName)
+        model.buildBufferHVs(modelMultiply: modelMultiply, modelAdd: modelAdd, mode: "train", D: D, dataset: datasetName)
+        model.buildBufferHVs(modelMultiply: modelMultiply, modelAdd: modelAdd, mode: "test", D: D, dataset: datasetName)
         
         return model
     }
@@ -378,24 +446,51 @@ public class HDModel {
     
     
     // Define a function to perform element-wise addition
-    func performElementWiseAddition(model: ElementwiseAdd, inputArray1: [Float], inputArray2: [Float]) -> [Float]? {
-//         Load the model
-
-    
+//    func performElementWiseAddition(model: ElementwiseAdd10000, inputArray1: [Float], inputArray2: [Float]) -> [Float]? {
+//        //         Load the model
+//        
+//        guard let input1 = createMLMultiArray(from: inputArray1, shape: [1, inputArray1.count]),
+//              let input2 = createMLMultiArray(from: inputArray2, shape: [1, inputArray2.count]) else {
+//            fatalError("Failed to create input arrays")
+//        }
+//        
+//        // Perform prediction
+//        do {
+//            let prediction = try model.prediction(input1: input1, input2: input2)
+//            
+//            // Access and print the result using the output name 'Identity'
+//            if let result = prediction.Identity as? MLMultiArray { // 'Identity' is the output name
+//                if let resultArray = multiArrayToFloatArray(result) {
+//                    //                    print("Result Array: \(resultArray)")
+//                    return resultArray
+//                } else {
+//                    print("Failed to convert result to array")
+//                    return nil
+//                    
+//                }
+//            }
+//        } catch {
+//            print("Error making prediction: \(error)")
+//            return nil
+//        }
+//        
+//        
+//    }
+    func performElementWiseAddition(model: ElementWiseAddition_2D_to_1D, inputArray1: [[Float]]) -> [Float]? {
+        //         Load the model
         
-        guard let input1 = createMLMultiArray(from: inputArray1, shape: [1, 10]),
-              let input2 = createMLMultiArray(from: inputArray2, shape: [1, 10]) else {
+        guard let input1 = createMLMultiArray2D(from: inputArray1) else {
             fatalError("Failed to create input arrays")
         }
-
+        
         // Perform prediction
         do {
-            let prediction = try model.prediction(input1: input1, input2: input2)
-
+            let prediction = try model.prediction(input_array: input1)
+            
             // Access and print the result using the output name 'Identity'
             if let result = prediction.Identity as? MLMultiArray { // 'Identity' is the output name
                 if let resultArray = multiArrayToFloatArray(result) {
-//                    print("Result Array: \(resultArray)")
+                    //                    print("Result Array: \(resultArray)")
                     return resultArray
                 } else {
                     print("Failed to convert result to array")
@@ -408,11 +503,69 @@ public class HDModel {
             return nil
         }
         
-
         
-
     }
-
+    
+    func performElementWiseMultiplication(model: ElementWiseMultiplication10x10, inputArray1: [[Float]], inputArray2: [[Float]]) -> [[Float]]? {
+        //         Load the model
+        
+        guard let input1 = createMLMultiArray2D(from: inputArray1),
+              let input2 = createMLMultiArray2D(from: inputArray2) else {
+            fatalError("Failed to create input arrays")
+        }
+        
+        // Perform prediction
+        do {
+            let prediction = try model.prediction(input1: input1, input2: input2)
+            
+            // Access and print the result using the output name 'Identity'
+            if let result = prediction.Identity as? MLMultiArray { // 'Identity' is the output name
+                if let resultArray = convertMLMultiArrayTo2DArray(result) {
+                    //                    print("Result Array: \(resultArray)")
+                    return resultArray
+                } else {
+                    print("Failed to convert result to array")
+                    return nil
+                    
+                }
+            }
+        } catch {
+            print("Error making prediction: \(error)")
+            return nil
+        }
+        
+        
+    }
+    
+    // Function to create MLMultiArray from [[Float]] 2D array
+    func createMLMultiArray2D(from array: [[Float]]) -> MLMultiArray? {
+        // Get the shape dimensions (should be 10x10)
+        let rows = array.count
+        let columns = array.first?.count ?? 0
+        
+        // Ensure the input array has a consistent shape
+        guard rows == 10, columns == 10 else {
+            print("Input array must have a 10x10 shape.")
+            return nil
+        }
+        
+        // Create an MLMultiArray with the given shape
+        let shape: [NSNumber] = [NSNumber(value: rows), NSNumber(value: columns)]
+        guard let mlArray = try? MLMultiArray(shape: shape, dataType: .float32) else {
+            print("Failed to create MLMultiArray.")
+            return nil
+        }
+        
+        // Fill the MLMultiArray with values from the [[Float]] array
+        for i in 0..<rows {
+            for j in 0..<columns {
+                mlArray[[i as NSNumber, j as NSNumber]] = NSNumber(value: array[i][j])
+            }
+        }
+        
+        return mlArray
+    }
+    
     
     
     // Convert MLMultiArray to [Float]
@@ -422,11 +575,11 @@ public class HDModel {
             print("Unsupported data type")
             return nil
         }
-
+        
         // Convert MLMultiArray to [Float] using a more direct approach
         let count = multiArray.count
         var array = [Float](repeating: 0, count: count)
-
+        
         for i in 0..<count {
             // Use `floatValue` to access the values
             array[i] = multiArray[i].floatValue
@@ -434,7 +587,7 @@ public class HDModel {
         
         return array
     }
-
+    
     // Helper function to create MLMultiArray from array with specified shape
     func createMLMultiArray(from array: [Float], shape: [Int]) -> MLMultiArray? {
         do {
@@ -466,12 +619,12 @@ public class HDModel {
     func zeros2D(columns: Int, rows: Int) -> [[Float]] {
         
         let zerosArray: [[Float]] = Array(repeating: Array(repeating: 0, count: columns), count: rows)
-
+        
         // Create an array of doubles filled with zeros
         
         return zerosArray
     }
-
+    
     
     func convertToMLMultiArray(intArray: [Int], dimension: [NSNumber]) -> MLMultiArray? {
         do {
@@ -541,11 +694,11 @@ public class HDModel {
         else {
             
             print("Error: The value is not of a supported type.")
-//            print(value)
+            //            print(value)
             return nil
         }
     }
-
+    
     func convertMLMultiArrayTo2DArray(_ multiArray: MLMultiArray) -> [[Float]]? {
         // Check if the MLMultiArray is 2D
         guard multiArray.shape.count == 2 else {
@@ -572,7 +725,7 @@ public class HDModel {
         
         return result
     }
-
+    
     
     // Function to convert Any to [[Int]]
     func convertToArrayOfIntArrays(from value: Any) -> [[Int]]? {
@@ -585,6 +738,7 @@ public class HDModel {
             return nil
         }
     }
-
+    
+    
     
 }
