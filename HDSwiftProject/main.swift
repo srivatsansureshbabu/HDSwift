@@ -2,7 +2,7 @@
 //  main.swift
 //  HDSwiftProject
 //
-//  Created by Srivatsan Suresh Babu on 8/15/24.
+//  Created by Hanna Silva on 8/15/24.
 //
 
 import Foundation
@@ -75,14 +75,40 @@ let n = 10
 
 if let (trainData, trainLabels, testData, testLabels) = loadIsoletData() {
     
-    let model = HDModel.buildHDModel(trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, nLevels: nLevels, datasetName: "isolet")
-
-
-    let elementWiseAdder = try ElementwiseAdd(configuration: MLModelConfiguration())
-        
-
+    let config = MLModelConfiguration()
+    config.computeUnits = .all
     
-    let accuracy = model.trainNTimes(model: elementWiseAdder, classHVs: model.classHVs, trainHVs: model.trainHVs, trainLabels: model.trainLabels, testHVs: model.testHVs, testLabels: model.testLabels, n: n)
+    let elementWiseMultiplier = try ElementWiseMultiplication617x10(configuration: config)
+//    let elementWiseMultiplier = try MultiplyAndSumModel(configuration: config)
+    let elementWiseAdder = try ElementWiseAddition_2D_to_1D_617x10(configuration: config)
+//
+    let model = HDModel.buildHDModel(modelMultiply: elementWiseMultiplier, modelAdd: elementWiseAdder, trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, nLevels: nLevels, datasetName: "isolet")
+
+//    let model = HDModel(trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, totalLevel: nLevels)
+    
+    
+    // Test Case
+//    let inputBuffer: [Float] = [1, 2]
+//    let D = 3
+//    let levelHVs: [Int: [Float]] = [
+//        0: [1.0, 0.0, 1.0],
+//        1: [0.0, 1.0, 0.0],
+//        2: [1.0, 1.0, 1.0]
+//    ]
+//    let levelList: [Float] = [0, 1, 2]
+//    let IDHVs: [Int: [Float]] = [
+//        0: [1.0, 1.0, 1.0],
+//        1: [0.0, 1.0, 0.0]
+//    ]
+     
+    // Running the function
+//    let result = model.IDMultHVNew(modelMultiply: elementWiseMultiplier, modelAdd: elementWiseAdder, inputBuffer: inputBuffer, D: D, levelHVs: levelHVs, levelList: levelList, IDHVs: IDHVs)
+//    print(result!)   Expected Output: [1.0, 1.0, 1.0]
+//    print(model.performElementWiseMultiplication(model: elementWiseMultiplier, inputArray1: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0], inputArray2: [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]) ?? 6789998212)
+//
+//    
+//
+    let accuracy = model.trainNTimes(classHVs: model.classHVs, trainHVs: model.trainHVs, trainLabels: model.trainLabels, testHVs: model.testHVs, testLabels: model.testLabels, n: n)
     
     print("the maximum accuracy is: " + String(accuracy.max()!) )
 } else {
