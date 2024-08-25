@@ -3,6 +3,7 @@ import CoreML
 import CreateMLComponents
 import Foundation
 import Accelerate
+import Dispatch
 
 public class HDModel {
     var trainData: [[Float]]
@@ -38,17 +39,25 @@ public class HDModel {
         self.IDHVs = genIDHVs(totalPos: posIdNum, D: D)
     }
     
-    func buildBufferHVs(modelMultiply: ElementWiseMultiplication10x10, modelAdd: ElementWiseAddition_2D_to_1D, mode: String, D: Int, dataset: String){
+    func buildBufferHVs(modelMultiply: ElementWiseMultiplication617x10, modelAdd: ElementWiseAddition_2D_to_1D_617x10 , mode: String, D: Int, dataset: String){
         
         if mode == "train"{
             
             print("Encoding Training Data")
-            for i in 0..<self.trainData.count{
+//            for i in 0..<self.trainData.count{
+//                self.trainHVs.append(IDMultHV(modelMultiply: modelMultiply, modelAdd: modelAdd, inputBuffer: self.trainData[i], D: D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+//                print( Float(i)/Float(self.trainData.count) )
+//            }
+            
+            let semaphore = DispatchSemaphore(value: 4)
+            DispatchQueue.concurrentPerform(iterations: self.trainData.count) { i in
+                semaphore.wait()
+                
                 self.trainHVs.append(IDMultHV(modelMultiply: modelMultiply, modelAdd: modelAdd, inputBuffer: self.trainData[i], D: D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
                 print( Float(i)/Float(self.trainData.count) )
+                
+                semaphore.signal()
             }
-            
-            
             
             self.trainHVs = binarize(array: self.trainHVs)
             
@@ -60,99 +69,130 @@ public class HDModel {
         else{
             print("Encoding Testing Data")
             
-            for index in 0..<testData.count{
+//            for index in 0..<testData.count{
+//                self.testHVs.append(IDMultHV(modelMultiply: modelMultiply, modelAdd: modelAdd, inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
+//                print( Float(index)/Float(self.testData.count) )
+//                
+//            }
+            
+            let semaphore = DispatchSemaphore(value: 4)
+            
+            DispatchQueue.concurrentPerform(iterations: testData.count) { index in
+                semaphore.wait()
+                
                 self.testHVs.append(IDMultHV(modelMultiply: modelMultiply, modelAdd: modelAdd, inputBuffer: self.testData[index], D: self.D, levelHVs: self.levelHVs, levelList: self.levelList, IDHVs: self.IDHVs)!)
                 print( Float(index)/Float(self.testData.count) )
                 
+                semaphore.signal()
             }
+            
             
             self.testHVs = binarize(array: self.testHVs)
         }
     }
     
-    func IDMultHV(modelMultiply: ElementWiseMultiplication10x10, modelAdd: ElementWiseAddition_2D_to_1D, inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
-
-        var sumHV = zeros(size: D)!
-        
-        for keyVal in 0..<inputBuffer.count{
-            let IDHV = IDHVs[keyVal]
-            let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
-            let levelHV = levelHVs[key]
-            
-            if keyVal < 5 {
-                print("IDHVS: \n\n")
-                print(IDHV!) // D dimensionality
-                print("levelHVs: \n\n")
-                print(levelHV!) // D dimensionality
-            }
-            
-            // element wise multiply them
-            for i in 0..<IDHV!.count {
-                sumHV[i] += IDHV![i] * levelHV![i]
-            }
-            
-            
-            // is there a way we could make IDHV and levelHV into a 2D array and then do operations based on that, and put them into a 1D array?
-        }
-        
-        
-        return sumHV
-    }
-    
-    
-    
-//    func IDMultHV(modelMultiply: ElementWiseMultiplication10x10, modelAdd: ElementWiseAddition_2D_to_1D, inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
-//    
-////            var sumHV = zeros(size: D)!
-//    
-//            let IDHVs2D: [[Float]] = Array(IDHVs.values) // converts IDHVs into a 2D array
-//            var levelHVs2D: [[Float]] = Array(levelHVs.values) // converts levelHVs into a 2D array
-//    
-//    
-//            for keyVal in 0..<inputBuffer.count{
-//                let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
-//                levelHVs2D[keyVal] = levelHVs[key]!
-//            }
+//    func IDMultHV(modelMultiply: ElementWiseMultiplication617x10, modelAdd: ElementWiseAddition_2D_to_1D_617x10, inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
+//
+//        var sumHV = zeros(size: D)!
 //        
-//            // element-wise multiplies and adds it into sumHV
+//        for keyVal in 0..<inputBuffer.count{
+//            let IDHV = IDHVs[keyVal]
+//            let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
+//            let levelHV = levelHVs[key]
 //            
-//             var elementWiseMultiplied = performElementWiseMultiplication(model: modelMultiply, inputArray1: IDHVs2D, inputArray2: levelHVs2D)
+////            if keyVal < 5 {
+////                print("IDHVS: \n\n")
+////                print(IDHV!) // D dimensionality
+////                print("levelHVs: \n\n")
+////                print(levelHV!) // D dimensionality
+////            }
 //            
-//             var sumHV = performElementWiseAddition(model: modelAdd, inputArray1: elementWiseMultiplied!)
-////                for j in 0..<IDHVs2D.count{
-////    
-////                    for k in 0..<IDHVs2D[j].count{
-////                        sumHV[k] += IDHVs2D[j][k] * levelHVs2D[j][k]
-////                    }
-////                    print(sumHV)
-////                }
-//    
-//                // is there a way we could make IDHV and levelHV into a 2D array and then do operations based on that, and put them into a 1D array?
-//    
-//            return sumHV
+//            // element wise multiply them
+//            for i in 0..<IDHV!.count {
+//                sumHV[i] += IDHV![i] * levelHV![i]
+//            }
+//            
+//            
+//            // is there a way we could make IDHV and levelHV into a 2D array and then do operations based on that, and put them into a 1D array?
 //        }
+//        
+//        return sumHV
+//    }
+    
+    
+    
+    func IDMultHV(modelMultiply: ElementWiseMultiplication617x10, modelAdd: ElementWiseAddition_2D_to_1D_617x10 , inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
+    
+            var sumHV = zeros(size: D)!
+    
+            let IDHVs2D: [[Float]] = Array(IDHVs.values) // converts IDHVs into a 2D array
+            var levelHVs2D: [[Float]] = Array(IDHVs.values) // converts levelHVs into a 2D array
+    
+            // well maybe we could do element-wise multiplication between a 617x10, then it will be a element wise addition of that 617x10 to a 1x10 array...
+        
+            for keyVal in 0..<inputBuffer.count{
+                let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
+                levelHVs2D[keyVal] = levelHVs[key]!
+            }
+            
+            // element-wise multiplies and adds it into sumHV
+            
+             var elementWiseMultiplied = performElementWiseMultiplication(model: modelMultiply, inputArray1: IDHVs2D, inputArray2: levelHVs2D)
+
+        for i in 0..<D{
+            for j in 0..<elementWiseMultiplied!.count{
+                sumHV[i] += elementWiseMultiplied![j][i]
+            }
+        }
+             
+//                for j in 0..<IDHVs2D.count{
 //    
+//                    for k in 0..<IDHVs2D[j].count{
+//                        sumHV[k] += IDHVs2D[j][k] * levelHVs2D[j][k]
+//                    }
+//                    print(sumHV)
+//                }
+    
+                // is there a way we could make IDHV and levelHV into a 2D array and then do operations based on that, and put them into a 1D array?
+            return sumHV
+        }
     
     
-    //    func IDMultHV(model: ElementWiseMultiplication10000, inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]? {
-    //
-    //        // Initialize sumHV with zeros
-    //        var sumHV = zeros(size: D)!
-    //
-    //        for keyVal in 0..<inputBuffer.count {
-    //
-    //            // Assuming valid data, directly retrieve IDHV and levelHV
-    //            let IDHV = IDHVs[keyVal]!
-    //            let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
-    //            let levelHV = levelHVs[key]!
-    //
-    //            // Perform element-wise multiplication directly
-    //            let sumHV = performElementWiseMultiplication(model: model, inputArray1: IDHV, inputArray2: levelHV)!
-    //
-    //        }
-    //
-    //        return sumHV
-    //    }
+    
+//        func IDMultHV(modelMultiply: ElementWiseMultiplication617x10, modelAdd: ElementWiseAddition_2D_to_1D_617x10 , inputBuffer: [Float], D: Int, levelHVs: [Int: [Float]], levelList: [Float], IDHVs: [Int:[Float]]) -> [Float]?{
+//    
+////                var sumHV = zeros(size: D)!
+//    
+//                let IDHVs2D: [[Float]] = Array(IDHVs.values) // converts IDHVs into a 2D array
+//                var levelHVs2D: [[Float]] = Array(IDHVs.values) // converts levelHVs into a 2D array
+//    
+//                // well maybe we could do element-wise multiplication between a 617x10, then it will be a element wise addition of that 617x10 to a 1x10 array...
+//    
+//                for keyVal in 0..<inputBuffer.count{
+//                    let key = numToKey(value: inputBuffer[keyVal], levelList: levelList)
+//                    levelHVs2D[keyVal] = levelHVs[key]!
+//                }
+//    
+//                // element-wise multiplies and adds it into sumHV
+//            
+//            let sumHV = performElementWiseMultiplication(model: modelMultiply, inputArray1: IDHVs2D, inputArray2: levelHVs2D)
+////            for i in 0..<D{
+////                for j in 0..<elementWiseMultiplied!.count{
+////                    sumHV[i] += elementWiseMultiplied![j][i]
+////                }
+////            }
+//    
+//    //                for j in 0..<IDHVs2D.count{
+//    //
+//    //                    for k in 0..<IDHVs2D[j].count{
+//    //                        sumHV[k] += IDHVs2D[j][k] * levelHVs2D[j][k]
+//    //                    }
+//    //                    print(sumHV)
+//    //                }
+//    
+//                    // is there a way we could make IDHV and levelHV into a 2D array and then do operations based on that, and put them into a 1D array?
+//                return sumHV
+//            }
     
     
     
@@ -368,7 +408,6 @@ public class HDModel {
         return guess
     }
     
-    // error rate doesn't work properly
     func trainOneTime(classHVs: [[Float]], trainHVs: [[Float]], trainLabels: [Int]) -> ([[Float]], Float){
         
         var retClassHVs = classHVs
@@ -432,7 +471,7 @@ public class HDModel {
         return Float((accuracy))
     }
     
-    static func buildHDModel(modelMultiply: ElementWiseMultiplication10x10, modelAdd: ElementWiseAddition_2D_to_1D, trainData: [[Float]], trainLabels: [Int], testData: [[Float]], testLabels: [Int], D: Int, nLevels: Int, datasetName: String) -> HDModel{
+    static func buildHDModel(modelMultiply: ElementWiseMultiplication617x10, modelAdd: ElementWiseAddition_2D_to_1D_617x10, trainData: [[Float]], trainLabels: [Int], testData: [[Float]], testLabels: [Int], D: Int, nLevels: Int, datasetName: String) -> HDModel{
         let model = HDModel(trainData: trainData, trainLabels: trainLabels, testData: testData, testLabels: testLabels, D: D, totalLevel: nLevels)
         model.buildBufferHVs(modelMultiply: modelMultiply, modelAdd: modelAdd, mode: "train", D: D, dataset: datasetName)
         model.buildBufferHVs(modelMultiply: modelMultiply, modelAdd: modelAdd, mode: "test", D: D, dataset: datasetName)
@@ -476,13 +515,16 @@ public class HDModel {
 //        
 //        
 //    }
-    func performElementWiseAddition(model: ElementWiseAddition_2D_to_1D, inputArray1: [[Float]]) -> [Float]? {
+    func performElementWiseAddition(model: ElementWiseAddition_2D_to_1D_617x10, inputArray1: [[Float]]) -> [Float]? {
         //         Load the model
         
-        guard let input1 = createMLMultiArray2D(from: inputArray1) else {
+        guard let input = createMLMultiArray2D(from: inputArray1) else {
             fatalError("Failed to create input arrays")
         }
         
+        guard let input1 = convert2DArrayTo3DMLMultiArray(array: inputArray1) else{
+            fatalError("Not working")
+        }
         // Perform prediction
         do {
             let prediction = try model.prediction(input_array: input1)
@@ -506,11 +548,14 @@ public class HDModel {
         
     }
     
-    func performElementWiseMultiplication(model: ElementWiseMultiplication10x10, inputArray1: [[Float]], inputArray2: [[Float]]) -> [[Float]]? {
+    
+
+    
+    func performElementWiseMultiplication(model: ElementWiseMultiplication617x10, inputArray1: [[Float]], inputArray2: [[Float]]) -> [[Float]]? { // [[Float]] ?
         //         Load the model
         
-        guard let input1 = createMLMultiArray2D(from: inputArray1),
-              let input2 = createMLMultiArray2D(from: inputArray2) else {
+        guard let input1 = convert2DArrayTo3DMLMultiArray(array: inputArray1),
+              let input2 = convert2DArrayTo3DMLMultiArray(array: inputArray2) else {
             fatalError("Failed to create input arrays")
         }
         
@@ -520,7 +565,7 @@ public class HDModel {
             
             // Access and print the result using the output name 'Identity'
             if let result = prediction.Identity as? MLMultiArray { // 'Identity' is the output name
-                if let resultArray = convertMLMultiArrayTo2DArray(result) {
+                if let resultArray = convert3DMLMultiArrayTo2DArray(mlMultiArray: result) {
                     //                    print("Result Array: \(resultArray)")
                     return resultArray
                 } else {
@@ -537,6 +582,69 @@ public class HDModel {
         
     }
     
+    func convert3DMLMultiArrayTo2DArray(mlMultiArray: MLMultiArray) -> [[Float]]? {
+        // Ensure the MLMultiArray has the expected shape
+        guard mlMultiArray.shape.count == 3 else {
+            print("Expected 3D MLMultiArray.")
+            return nil
+        }
+        
+        // Extract the dimensions
+        let batchSize = mlMultiArray.shape[0].intValue
+        let height = mlMultiArray.shape[1].intValue
+        let width = mlMultiArray.shape[2].intValue
+        
+        guard batchSize == 1 else {
+            print("Expected batch size of 1.")
+            return nil
+        }
+        
+        // Create a 2D array to hold the result
+        var array: [[Float]] = Array(repeating: Array(repeating: 0.0, count: width), count: height)
+        
+        // Fill the 2D array with values from the 3D MLMultiArray
+        for i in 0..<height {
+            for j in 0..<width {
+                let value = mlMultiArray[[0, NSNumber(value: i), NSNumber(value: j)]].floatValue ?? 0.0
+                array[i][j] = value
+            }
+        }
+        
+        return array
+    }
+    
+    
+    func convert2DArrayTo3DMLMultiArray(array: [[Float]]) -> MLMultiArray? {
+        let height = array.count // Number of rows
+        guard height > 0 else { return nil } // Ensure the array is not empty
+        let width = array[0].count // Number of columns
+        
+        // Create a 3D MLMultiArray with shape [1, height, width]
+        let shape: [NSNumber] = [1, NSNumber(value: height), NSNumber(value: width)]
+        
+        do {
+            let mlMultiArray = try MLMultiArray(shape: shape, dataType: .float32)
+            
+            // Fill the 3D MLMultiArray with the 2D array data
+            for i in 0..<height {
+                for j in 0..<width {
+                    mlMultiArray[[0, NSNumber(value: i), NSNumber(value: j)]] = NSNumber(value: array[i][j])
+                }
+            }
+            
+            return mlMultiArray
+        } catch {
+            print("Error creating MLMultiArray: \(error)")
+            return nil
+        }
+    }
+    
+    
+    
+    
+    
+    
+    
     // Function to create MLMultiArray from [[Float]] 2D array
     func createMLMultiArray2D(from array: [[Float]]) -> MLMultiArray? {
         // Get the shape dimensions (should be 10x10)
@@ -544,8 +652,8 @@ public class HDModel {
         let columns = array.first?.count ?? 0
         
         // Ensure the input array has a consistent shape
-        guard rows == 10, columns == 10 else {
-            print("Input array must have a 10x10 shape.")
+        guard rows == 617, columns == 10 else {
+            print("Input array must have a 617x10 shape.")
             return nil
         }
         
